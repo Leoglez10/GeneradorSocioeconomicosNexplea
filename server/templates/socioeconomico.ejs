@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estudio Socioeconómico — <%= data.nombre || 'Candidato' %></title>
+<style>
+  /* ============================================
+     RESET & BASE
+     ============================================ */
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body {
+    width: 100%;
+    font-family: 'Segoe UI', 'Arial', system-ui, sans-serif;
+    font-size: 10pt;
+    line-height: 1.4;
+    color: #1f2937;
+    background: #ffffff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ============================================
+     PRINT / PAGE SETTINGS
+     ============================================ */
+  @page {
+    size: A4;
+    margin: 18mm 12mm 18mm 12mm;
+  }
+
+  /* ============================================
+     WATERMARK - fixed so it repeats on every page
+     ============================================ */
+  .watermark {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-25deg);
+    width: 65%;
+    opacity: 0.04;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ============================================
+     CONTENT WRAPPER
+     ============================================ */
+  .content {
+    position: relative;
+    z-index: 10;
+  }
+
+  /* ============================================
+     PAGE BREAK CONTROL
+     ============================================ */
+  .page-break {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .keep-with-next {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* ============================================
+     SECTION HEADERS
+     ============================================ */
+  .section-header {
+    background-color: #e5e7eb;
+    padding: 5px 8px;
+    border: 1px solid #374151;
+    margin-bottom: 8px;
+    font-weight: bold;
+    font-size: 10pt;
+    color: #111827;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .section-header-small {
+    font-weight: normal;
+    font-size: 7pt;
+    color: #4b5563;
+  }
+
+  /* ============================================
+     TITLE
+     ============================================ */
+  .title {
+    text-align: center;
+    font-size: 15pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    color: #111827;
+    letter-spacing: 1px;
+  }
+
+  /* ============================================
+     INFO LINES
+     ============================================ */
+  .info-line {
+    border-bottom: 1px solid #374151;
+    padding: 2px 0;
+    margin-top: 4px;
+    font-size: 9.5pt;
+  }
+
+  .info-line strong {
+    color: #111827;
+  }
+
+  /* ============================================
+     GRID LAYOUTS
+     ============================================ */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 12px;
+  }
+
+  .grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 4px 12px;
+  }
+
+  .col-span-2 {
+    grid-column: span 2;
+  }
+
+  /* ============================================
+     TABLES
+     ============================================ */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 10px;
+    font-size: 9pt;
+  }
+
+  th, td {
+    border: 1px solid #4b5563;
+    padding: 4px 6px;
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  thead th {
+    background-color: #f3f4f6;
+    font-weight: 600;
+    color: #111827;
+    font-size: 8.5pt;
+  }
+
+  tbody tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  tbody tr:nth-child(even) {
+    background-color: #fafafa;
+  }
+
+  td.text-left, th.text-left {
+    text-align: left;
+  }
+
+  /* ============================================
+     CHECKBOX STYLE
+     ============================================ */
+  .check {
+    font-family: 'Segoe UI Symbol', 'Arial Unicode MS', sans-serif;
+    font-size: 10pt;
+  }
+
+  .check-mark {
+    color: #059669;
+    font-weight: bold;
+  }
+
+  .check-empty {
+    color: #9ca3af;
+  }
+
+  /* ============================================
+     RADIO OPTIONS (for vivienda, dictamen, etc.)
+     ============================================ */
+  .radio-group {
+    font-size: 9pt;
+    padding: 3px 0;
+    line-height: 1.6;
+  }
+
+  .radio-option {
+    display: inline;
+    margin-right: 4px;
+  }
+
+  .radio-selected {
+    font-weight: bold;
+    color: #111827;
+  }
+
+  /* ============================================
+     DOCS GRID
+     ============================================ */
+  .docs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px 16px;
+    margin-bottom: 12px;
+  }
+
+  .docs-block-header {
+    font-weight: bold;
+    border-bottom: 1px solid #374151;
+    margin-bottom: 4px;
+    padding-bottom: 2px;
+    font-size: 8.5pt;
+  }
+
+  .docs-item {
+    font-size: 9pt;
+    padding: 1px 0;
+  }
+
+  /* ============================================
+     EMPLEOS
+     ============================================ */
+  .empleo-section {
+    border: 1px solid #4b5563;
+    padding: 8px;
+    margin-bottom: 10px;
+  }
+
+  .empleo-section .grid-2 {
+    gap: 3px 10px;
+  }
+
+  /* ============================================
+     GRAFICA TABLE
+     ============================================ */
+  .grafica-mark {
+    font-size: 12pt;
+    font-weight: bold;
+  }
+
+  .grafica-selected {
+    color: #059669;
+  }
+
+  .grafica-empty {
+    color: #e5e7eb;
+  }
+
+  /* ============================================
+     CONCLUSION & DICTAMEN
+     ============================================ */
+  .dictamen-box {
+    border: 2px solid #374151;
+    padding: 10px;
+    margin-bottom: 16px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 10pt;
+  }
+
+  .dictamen-box.recomendable {
+    border-color: #059669;
+    background-color: #f0fdf4;
+  }
+
+  .dictamen-box.reservas {
+    border-color: #d97706;
+    background-color: #fffbeb;
+  }
+
+  .dictamen-box.no-recomendable {
+    border-color: #dc2626;
+    background-color: #fef2f2;
+  }
+
+  .dictamen-option {
+    font-size: 12pt;
+    margin-top: 4px;
+  }
+
+  .dictamen-option.selected {
+    font-size: 13pt;
+    font-weight: 900;
+  }
+
+  /* ============================================
+     PHOTOS
+     ============================================ */
+  .photos-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .photo-container {
+    border: 1px solid #6b7280;
+    border-radius: 4px;
+    height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #f9fafb;
+  }
+
+  .photo-container img {
+    max-height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+  }
+
+  .photo-label {
+    text-align: center;
+    font-size: 8pt;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+
+  .photo-placeholder {
+    color: #9ca3af;
+    font-size: 9pt;
+    font-style: italic;
+  }
+
+  /* ============================================
+     REFERENCE CARDS
+     ============================================ */
+  .ref-card {
+    border: 1px solid #4b5563;
+    padding: 6px 8px;
+    margin-bottom: 8px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* ============================================
+     SPACING
+     ============================================ */
+  .mb-2 { margin-bottom: 6px; }
+  .mb-4 { margin-bottom: 12px; }
+  .mb-6 { margin-bottom: 16px; }
+  .mt-2 { margin-top: 6px; }
+  .mt-4 { margin-top: 12px; }
+
+  /* ============================================
+     NOTAS
+     ============================================ */
+  .nota-footer {
+    font-size: 7.5pt;
+    text-align: justify;
+    border-top: 1px solid #374151;
+    padding-top: 6px;
+    color: #4b5563;
+  }
+
+  /* ============================================
+     ORPHAN/WIDOW
+     ============================================ */
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+</style>
+</head>
+<body>
+
+<!-- WATERMARK (fixed = repeats on every printed page) -->
+<% if (data._logoBase64) { %>
+<img class="watermark" src="data:image/png;base64,<%= data._logoBase64 %>" alt="" />
+<% } %>
+
+<div class="content">
+
+  <!-- ============================================
+       TITULO Y DATOS DE ENCABEZADO
+       ============================================ -->
+  <div class="avoid-break">
+    <div class="title">Estudio Socioeconómico</div>
+    <div class="mb-4">
+      <p class="info-line"><strong>FECHA:</strong> <%= data.fecha ? data.fecha.split('-').reverse().join(' / ') : '' %></p>
+      <p class="info-line"><strong>PUESTO QUE SOLICITA:</strong> <%= data.puesto || '' %></p>
+      <p class="info-line"><strong>Nombre del aspirante (Paterno, Materno, Nombres):</strong> <%= data.nombre || '' %></p>
+    </div>
+  </div>
+
+  <!-- ============================================
+       I. DATOS GENERALES
+       ============================================ -->
+  <div class="avoid-break keep-with-next">
+    <div class="section-header">I. DATOS GENERALES</div>
+  </div>
+  <div class="grid-2 mb-4 avoid-break">
+    <p class="info-line"><strong>Lugar y fecha de nacimiento:</strong> <%= data.lugarNacimiento || '' %> // <%= data.fechaNacimiento || '' %></p>
+    <p class="info-line"><strong>Edad:</strong> <%= data.edad || '' %> &nbsp; <strong>Sexo:</strong> <%= data.sexo || '' %> &nbsp; <strong>Estado civil:</strong> <%= data.estadoCivil || '' %></p>
+    <p class="info-line col-span-2"><strong>Domicilio (calle, número exterior e interior):</strong> <%= data.calle || '' %></p>
+    <p class="info-line"><strong>Colonia:</strong> <%= data.colonia || '' %></p>
+    <p class="info-line"><strong>Municipio:</strong> <%= data.municipio || '' %></p>
+    <p class="info-line"><strong>Código postal:</strong> <%= data.cp || '' %></p>
+    <p class="info-line"><strong>Ciudad // Estado:</strong> <%= data.estado || '' %></p>
+    <p class="info-line col-span-2"><strong>Entre la calle de:</strong> <%= data.entreCalles || '' %></p>
+    <p class="info-line"><strong>Grado máximo de estudios:</strong> <%= data.gradoEstudios || '' %></p>
+    <p class="info-line"><strong>Teléfonos:</strong> <%= data.telefonos || '' %></p>
+  </div>
+
+  <!-- ============================================
+       II. DOCUMENTOS COMPROBATORIOS
+       ============================================ -->
+  <div class="keep-with-next">
+    <div class="section-header">II. DOCUMENTOS COMPROBATORIOS</div>
+  </div>
+  <div class="docs-grid mb-4 avoid-break">
+    <!-- Columna 1 -->
+    <div>
+      <div class="docs-block-header">Documento / No. / Folio</div>
+      <p class="docs-item"><span class="check <%= data.docs.actaNacimiento.checked ? 'check-mark' : 'check-empty' %>"><%= data.docs.actaNacimiento.checked ? '☑' : '☐' %></span> Acta de nacimiento: <%= data.docs.actaNacimiento.folio || '' %></p>
+      <p class="docs-item"><span class="check <%= data.docs.ine.checked ? 'check-mark' : 'check-empty' %>"><%= data.docs.ine.checked ? '☑' : '☐' %></span> Credencial Elector: <%= data.docs.ine.folio || '' %></p>
+      <p class="docs-item"><span class="check <%= data.docs.cartillaMilitar.checked ? 'check-mark' : 'check-empty' %>"><%= data.docs.cartillaMilitar.checked ? '☑' : '☐' %></span> Cartilla Militar: <%= data.docs.cartillaMilitar.folio || '' %></p>
+      <p class="docs-item"><span class="check <%= data.docs.actaMatrimonio.checked ? 'check-mark' : 'check-empty' %>"><%= data.docs.actaMatrimonio.checked ? '☑' : '☐' %></span> Acta de matrimonio: <%= data.docs.actaMatrimonio.folio || '' %></p>
+      <p class="docs-item"><span class="check <%= data.docs.curp.checked ? 'check-mark' : 'check-empty' %>"><%= data.docs.curp.checked ? '☑' : '☐' %></span> CURP: <%= data.docs.curp.folio || '' %></p>
+    </div>
+    <!-- Columna 2 -->
+    <div>
+      <div class="docs-block-header">Documento / No. / Folio</div>
+      <p class="docs-item"><span class="check <%= data.docs.licenciaConducir.checked ? 'check-mark' : 'check-empty' %>"><%= data.docs.licenciaConducir.checked ? '☑' : '☐' %></span> Licencia Conducir: <%= data.docs.licenciaConducir.folio || '' %></p>
+      <p class="docs-item"><span class="check <%= data.docs.actaNacConyuge.checked ? 'check-mark' : 'check-empty' %>"><%= data.docs.actaNacConyuge.checked ? '☑' : '☐' %></span> Acta nac. cónyuge: <%= data.docs.actaNacConyuge.folio || '' %></p>
+      <p class="docs-item"><span class="check <%= data.docs.imss.checked ? 'check-mark' : 'check-empty' %>"><%= data.docs.imss.checked ? '☑' : '☐' %></span> Afiliación IMSS: <%= data.docs.imss.folio || '' %></p>
+      <p class="docs-item"><span class="check <%= data.docs.recibosNomina.checked ? 'check-mark' : 'check-empty' %>"><%= data.docs.recibosNomina.checked ? '☑' : '☐' %></span> 2 Recibos Nómina: <%= data.docs.recibosNomina.folio || '' %></p>
+      <p class="docs-item"><span class="check <%= data.docs.actaNacHijos.checked ? 'check-mark' : 'check-empty' %>"><%= data.docs.actaNacHijos.checked ? '☑' : '☐' %></span> Acta nac. hijos: <%= data.docs.actaNacHijos.folio || '' %></p>
+    </div>
+    <!-- Columna 3 -->
+    <div>
+      <div class="docs-block-header">Documento / No. / Folio</div>
+      <p class="docs-item"><span class="check <%= data.docs.compImpuestos.checked ? 'check-mark' : 'check-empty' %>"><%= data.docs.compImpuestos.checked ? '☑' : '☐' %></span> Comp. Impuestos: <%= data.docs.compImpuestos.folio || '' %></p>
+      <p class="docs-item"><span class="check <%= data.docs.vigenciaMigratoria.checked ? 'check-mark' : 'check-empty' %>"><%= data.docs.vigenciaMigratoria.checked ? '☑' : '☐' %></span> Vigencia Migratoria: <%= data.docs.vigenciaMigratoria.folio || '' %></p>
+      <p class="docs-item"><span class="check <%= data.docs.compDomicilio.checked ? 'check-mark' : 'check-empty' %>"><%= data.docs.compDomicilio.checked ? '☑' : '☐' %></span> Comp. Domicilio: <%= data.docs.compDomicilio.folio || '' %></p>
+      <p class="docs-item"><span class="check <%= data.docs.rfc.checked ? 'check-mark' : 'check-empty' %>"><%= data.docs.rfc.checked ? '☑' : '☐' %></span> RFC: <%= data.docs.rfc.folio || '' %></p>
+      <p class="docs-item"><span class="check <%= data.docs.visaNorteamericana.checked ? 'check-mark' : 'check-empty' %>"><%= data.docs.visaNorteamericana.checked ? '☑' : '☐' %></span> Visa Norteamericana: <%= data.docs.visaNorteamericana.folio || '' %></p>
+    </div>
+  </div>
+
+  <!-- ============================================
+       III. HISTORIAL ACADÉMICO
+       ============================================ -->
+  <div class="keep-with-next">
+    <div class="section-header">III. HISTORIAL ACADÉMICO</div>
+  </div>
+  <div class="avoid-break mb-4">
+    <table>
+      <thead>
+        <tr>
+          <th class="text-left">NIVEL ESCOLAR</th>
+          <th>PERIODO</th>
+          <th>ESCUELA Y DOMICILIO</th>
+          <th>CERTIFICADO S/N</th>
+          <th>PROMEDIO</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% 
+          const nivelLabels = {
+            primaria: 'Primaria',
+            secundaria: 'Secundaria',
+            carreraComercial: 'Carrera Comercial',
+            bachillerato: 'Bachillerato',
+            licenciatura: 'Licenciatura',
+            cedulaProfesional: 'Cédula Profesional',
+            otros: 'Otros'
+          };
+          Object.entries(data.estudios || {}).forEach(function([nivel, datos]) {
+        %>
+        <tr>
+          <td class="text-left"><%= nivelLabels[nivel] || nivel %></td>
+          <td><%= datos.periodo || '' %></td>
+          <td class="text-left"><%= datos.escuela || '' %></td>
+          <td><%= datos.certificado || '' %></td>
+          <td><%= datos.promedio || '' %></td>
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+    <p class="info-line"><strong>Estudios actuales:</strong> <%= data.estudiosActuales || '' %></p>
+    <p class="info-line"><strong>Periodos inactivos:</strong> <%= data.periodosInactivos || '' %></p>
+    <p class="info-line"><strong>Motivos:</strong> <%= data.motivosInactivos || '' %></p>
+  </div>
+
+  <!-- ============================================
+       IV. ANTECEDENTES SOCIALES Y MÉDICOS
+       ============================================ -->
+  <div class="keep-with-next">
+    <div class="section-header">IV. ANTECEDENTES SOCIALES Y MÉDICOS</div>
+  </div>
+  <div class="avoid-break mb-4">
+    <table>
+      <thead>
+        <tr>
+          <th class="text-left">Concepto</th>
+          <th>Respuesta</th>
+          <th class="text-left">Detalles</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="text-left">Club Deportivo/Deporte</td>
+          <td><%= (data.deporte && data.deporte.respuesta) || '' %></td>
+          <td class="text-left">¿Cuál?: <%= (data.deporte && data.deporte.detalles) || '' %></td>
+        </tr>
+        <tr>
+          <td class="text-left">Puesto Sindical</td>
+          <td><%= (data.sindicato && data.sindicato.respuesta) || '' %></td>
+          <td class="text-left">¿Cuál?: <%= (data.sindicato && data.sindicato.detalles) || '' %> | Cargo: <%= (data.sindicato && data.sindicato.cargo) || '' %></td>
+        </tr>
+        <tr>
+          <td class="text-left">Partido Político</td>
+          <td><%= (data.partidoPolitico && data.partidoPolitico.respuesta) || '' %></td>
+          <td class="text-left">¿Cuál?: <%= (data.partidoPolitico && data.partidoPolitico.detalles) || '' %> | Cargo: <%= (data.partidoPolitico && data.partidoPolitico.cargo) || '' %></td>
+        </tr>
+        <tr>
+          <td class="text-left">Religión</td>
+          <td>-</td>
+          <td class="text-left"><%= data.religion || '' %></td>
+        </tr>
+        <tr>
+          <td class="text-left">Alcohol</td>
+          <td><%= (data.alcohol && data.alcohol.respuesta) || '' %></td>
+          <td class="text-left">Frecuencia: <%= (data.alcohol && data.alcohol.detalles) || '' %></td>
+        </tr>
+        <tr>
+          <td class="text-left">Tabaco</td>
+          <td><%= (data.tabaco && data.tabaco.respuesta) || '' %></td>
+          <td class="text-left">Frecuencia: <%= (data.tabaco && data.tabaco.detalles) || '' %></td>
+        </tr>
+        <tr>
+          <td class="text-left">Intervención Quirúrgica</td>
+          <td><%= (data.cirugias && data.cirugias.respuesta) || '' %></td>
+          <td class="text-left">¿Cuál?: <%= (data.cirugias && data.cirugias.detalles) || '' %></td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="info-line"><strong>Antecedentes de enfermedades en familia directa:</strong> <%= data.enfermedadesFamilia || '' %></p>
+    <p class="info-line"><strong>Planes a corto y mediano plazo:</strong> <%= data.planes || '' %></p>
+  </div>
+
+  <!-- ============================================
+       V. DATOS DEL GRUPO FAMILIAR
+       ============================================ -->
+  <div class="keep-with-next">
+    <div class="section-header">V. DATOS DEL GRUPO FAMILIAR <span class="section-header-small">(Familiares, personas que habitan el inmueble, cónyuge e hijos)</span></div>
+  </div>
+  <div class="mb-4">
+    <table>
+      <thead>
+        <tr>
+          <th class="text-left">Nombre</th>
+          <th>Parentesco</th>
+          <th>Edad</th>
+          <th>Edo. Civil</th>
+          <th>Teléfono</th>
+          <th>Vive con Ud.</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% (data.familiares || []).forEach(function(fam) { %>
+        <tr>
+          <td class="text-left"><%= fam.nombre || '' %></td>
+          <td><%= fam.parentesco || '' %></td>
+          <td><%= fam.edad || '' %></td>
+          <td><%= fam.edoCivil || '' %></td>
+          <td><%= fam.celular || '' %></td>
+          <td><%= fam.viveConUd === 'Sí' ? '☑ Sí  ☐ No' : '☐ Sí  ☑ No' %></td>
+        </tr>
+        <% }); %>
+        <% if (!(data.familiares && data.familiares.length)) { %>
+        <tr><td colspan="6" style="color:#9ca3af;font-style:italic;">Sin registros</td></tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================
+       VI. ANTECEDENTES LABORALES FAMILIARES
+       ============================================ -->
+  <div class="keep-with-next">
+    <div class="section-header">VI. ANTECEDENTES LABORALES FAMILIARES <span class="section-header-small">(Solo si trabajan)</span></div>
+  </div>
+  <div class="avoid-break mb-4">
+    <table>
+      <thead>
+        <tr>
+          <th class="text-left">Nombre</th>
+          <th>Empresa</th>
+          <th>Puesto</th>
+          <th>Antigüedad</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% (data.laboralesFamiliares || []).forEach(function(lab) { %>
+        <tr>
+          <td class="text-left"><%= lab.nombre || '' %></td>
+          <td><%= lab.empresa || '' %></td>
+          <td><%= lab.puesto || '' %></td>
+          <td><%= lab.antiguedad || '' %></td>
+        </tr>
+        <% }); %>
+        <% if (!(data.laboralesFamiliares && data.laboralesFamiliares.length)) { %>
+        <tr><td colspan="4" style="color:#9ca3af;font-style:italic;">Sin registros</td></tr>
+        <% } %>
+      </tbody>
+    </table>
+    <p class="info-line"><strong>NOTAS:</strong> <%= data.notasLaboralesFamiliares || '' %></p>
+  </div>
+
+  <!-- ============================================
+       VII. SITUACIÓN ECONÓMICA
+       ============================================ -->
+  <div class="keep-with-next">
+    <div class="section-header">VII. SITUACIÓN ECONÓMICA</div>
+  </div>
+  <div class="avoid-break mb-4">
+    <div class="grid-2" style="gap: 12px;">
+      <!-- Ingresos -->
+      <table>
+        <thead>
+          <tr><th colspan="3" style="background:#e5e7eb;">INGRESOS MENSUALES</th></tr>
+          <tr>
+            <th class="text-left">Nombre</th>
+            <th>Sueldo</th>
+            <th>Aportación</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% (data.ingresos || []).forEach(function(ing) { %>
+          <tr>
+            <td class="text-left"><%= ing.nombre || '' %></td>
+            <td>$<%= ing.sueldo || '0' %></td>
+            <td>$<%= ing.aportacion || '0' %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+      <!-- Egresos -->
+      <table>
+        <thead>
+          <tr><th colspan="2" style="background:#e5e7eb;">EGRESOS MENSUALES</th></tr>
+          <tr>
+            <th class="text-left">Conceptos</th>
+            <th>Montos</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% (data.egresos || []).forEach(function(egr) { %>
+          <tr>
+            <td class="text-left"><%= egr.concepto || '' %></td>
+            <td>$<%= egr.monto || '0' %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <p class="info-line mt-2"><strong>¿Cuándo los egresos son mayores a los ingresos, cómo los solventa?</strong> <%= data.solucionDeficit || '' %></p>
+  </div>
+
+  <!-- ============================================
+       VIII. BIENES (MUEBLES E INMUEBLES)
+       ============================================ -->
+  <div class="keep-with-next">
+    <div class="section-header">VIII. BIENES (MUEBLES E INMUEBLES)</div>
+  </div>
+  <div class="mb-4">
+    <table>
+      <thead>
+        <tr>
+          <th class="text-left">Nombre del propietario</th>
+          <th>Muebles e inmuebles</th>
+          <th>Adeudo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% (data.bienes || []).forEach(function(bien) { %>
+        <tr>
+          <td class="text-left"><%= bien.propietario || '' %></td>
+          <td><%= bien.tipo || '' %></td>
+          <td><%= bien.adeudo || '' %></td>
+        </tr>
+        <% }); %>
+        <% if (!(data.bienes && data.bienes.length)) { %>
+        <tr><td colspan="3" style="color:#9ca3af;font-style:italic;">Sin registros</td></tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================
+       IX. HABITACIÓN Y MEDIO AMBIENTE
+       ============================================ -->
+  <div class="keep-with-next">
+    <div class="section-header">IX. HABITACIÓN Y MEDIO AMBIENTE</div>
+  </div>
+  <div class="avoid-break mb-4">
+    <p class="info-line"><strong>Tiempo de residencia actual:</strong> <%= data.tiempoResidencia || '' %></p>
+
+    <p class="radio-group"><strong>Nivel de la zona:</strong>
+      <% ['Residencial','Media alta','Media','Media baja','Proletaria'].forEach(function(opt) { %>
+        <span class="radio-option <%= data.nivelZona === opt ? 'radio-selected' : '' %>">(<%= data.nivelZona === opt ? '●' : '○' %>) <%= opt %></span>
+      <% }); %>
+    </p>
+
+    <p class="radio-group"><strong>Tipo de vivienda:</strong>
+      <% ['Casa sola','Dúplex','Depto.','C. Huéspedes','Vecindad'].forEach(function(opt) { %>
+        <span class="radio-option <%= data.tipoVivienda === opt ? 'radio-selected' : '' %>">(<%= data.tipoVivienda === opt ? '●' : '○' %>) <%= opt %></span>
+      <% }); %>
+    </p>
+
+    <p class="info-line"><strong>Distribución:</strong> <%= data.distribucion || '' %></p>
+
+    <p class="radio-group"><strong>Mobiliario:</strong>
+      <% ['Lujoso','Buena calidad','Calidad media','Modesto'].forEach(function(opt) { %>
+        <span class="radio-option <%= data.mobiliarioCalidad === opt ? 'radio-selected' : '' %>">(<%= data.mobiliarioCalidad === opt ? '●' : '○' %>) <%= opt %></span>
+      <% }); %>
+      &nbsp;;&nbsp;
+      <% ['Holgado','Completo','Incompleto','Deficiente'].forEach(function(opt) { %>
+        <span class="radio-option <%= data.mobiliarioCantidad === opt ? 'radio-selected' : '' %>">(<%= data.mobiliarioCantidad === opt ? '●' : '○' %>) <%= opt %></span>
+      <% }); %>
+    </p>
+
+    <p class="radio-group"><strong>La vivienda es:</strong>
+      <% ['Amplia','Suficiente','Insuficiente','Precaria'].forEach(function(opt) { %>
+        <span class="radio-option <%= data.tamanoVivienda === opt ? 'radio-selected' : '' %>">(<%= data.tamanoVivienda === opt ? '●' : '○' %>) <%= opt %></span>
+      <% }); %>
+    </p>
+
+    <p class="radio-group"><strong>Condiciones:</strong>
+      <% ['Limpias','Sucias','Desordenadas','Ordenadas'].forEach(function(opt) { %>
+        <span class="radio-option <%= data.condicionesVivienda === opt ? 'radio-selected' : '' %>">(<%= data.condicionesVivienda === opt ? '●' : '○' %>) <%= opt %></span>
+      <% }); %>
+    </p>
+  </div>
+
+  <!-- ============================================
+       X. REFERENCIAS PERSONALES
+       ============================================ -->
+  <div class="keep-with-next">
+    <div class="section-header">X. REFERENCIAS PERSONALES</div>
+  </div>
+  <div class="mb-4">
+    <% (data.referencias || []).forEach(function(ref) { %>
+    <div class="ref-card">
+      <div class="grid-3 mb-2">
+        <p class="info-line"><strong>Nombre:</strong> <%= ref.nombre || '' %></p>
+        <p class="info-line"><strong>Tiempo de conocerlo:</strong> <%= ref.tiempo || '' %></p>
+        <p class="info-line"><strong>Tel.:</strong> <%= ref.telefono || '' %></p>
+      </div>
+      <p class="info-line"><strong>Comentarios:</strong> <%= ref.comentarios || '' %></p>
+    </div>
+    <% }); %>
+    <% if (!(data.referencias && data.referencias.length)) { %>
+    <p style="color:#9ca3af;font-style:italic;">Sin referencias registradas</p>
+    <% } %>
+  </div>
+
+  <!-- ============================================
+       XI. REFERENCIAS VECINALES
+       ============================================ -->
+  <div class="keep-with-next">
+    <div class="section-header">XI. REFERENCIAS VECINALES</div>
+  </div>
+  <div class="mb-4">
+    <% (data.referenciasVecinales || []).forEach(function(vec) { %>
+    <div class="ref-card">
+      <div class="grid-2 mb-2">
+        <p class="info-line"><strong>Nombre:</strong> <%= vec.nombre || '' %></p>
+        <p class="info-line"><strong>Domicilio:</strong> <%= vec.domicilio || '' %></p>
+      </div>
+      <p class="info-line"><strong>¿Cómo conceptúa al aspirante?:</strong> <%= vec.conceptoAspirante || '' %></p>
+      <p class="info-line"><strong>¿Cómo conceptúa a la familia como vecinos?:</strong> <%= vec.conceptoFamilia || '' %></p>
+      <div class="grid-2">
+        <p class="info-line"><strong>Estado civil del aspirante / ¿Tiene hijos?:</strong> <%= vec.estadoCivilHijos || '' %></p>
+        <p class="info-line"><strong>¿Sabe en donde trabaja?:</strong> <%= vec.sabeDondeTrabaja || '' %></p>
+      </div>
+      <p class="info-line"><strong>Notas:</strong> <%= vec.notas || '' %></p>
+    </div>
+    <% }); %>
+    <% if (!(data.referenciasVecinales && data.referenciasVecinales.length)) { %>
+    <p style="color:#9ca3af;font-style:italic;">Sin referencias vecinales registradas</p>
+    <% } %>
+  </div>
+
+  <!-- ============================================
+       XII. ANTECEDENTES LABORALES
+       ============================================ -->
+  <% (data.empleos || []).forEach(function(emp, index) { %>
+  
+    <!-- A) Datos proporcionados por candidato -->
+    <div class="page-break"></div>
+    <div class="keep-with-next">
+      <div class="section-header">XII. ANTECEDENTES LABORALES (Datos proporcionados por candidato) — Empleo <%= index + 1 %></div>
+    </div>
+    <div class="empleo-section avoid-break">
+      <div class="grid-2">
+        <p class="info-line"><strong>Nombre de la empresa:</strong> <%= emp.empresa || '' %></p>
+        <p class="info-line"><strong>Área o departamento:</strong> <%= emp.area || '' %></p>
+        <p class="info-line col-span-2"><strong>Domicilio (calle y número):</strong> <%= emp.domicilio || '' %></p>
+        <p class="info-line"><strong>Colonia:</strong> <%= emp.colonia || '' %></p>
+        <p class="info-line"><strong>C.P.:</strong> <%= emp.cp || '' %></p>
+        <p class="info-line"><strong>Teléfono:</strong> <%= emp.telefono || '' %></p>
+        <p class="info-line"><strong>Tipo de empresa:</strong> <%= emp.tipoEmpresa || '' %></p>
+        <p class="info-line"><strong>Puesto desempeñado:</strong> <%= emp.puesto || '' %></p>
+        <p class="info-line"><strong>Periodo trabajado (mes y año):</strong> <%= emp.periodo || '' %></p>
+        <p class="info-line"><strong>Sueldo mensual inicial:</strong> <%= emp.sueldoInicial || '' %></p>
+        <p class="info-line"><strong>Sueldo mensual final:</strong> <%= emp.sueldoFinal || '' %></p>
+        <p class="info-line"><strong>Nombre último jefe:</strong> <%= emp.jefe || '' %></p>
+        <p class="info-line"><strong>Puesto:</strong> <%= emp.puestoJefe || '' %></p>
+      </div>
+      <p class="info-line mt-2"><strong>¿Describa en qué consistía su trabajo?:</strong> <%= emp.descripcionTrabajo || '' %></p>
+      <p class="info-line"><strong>¿Por qué dejó el empleo?:</strong> <%= emp.motivoSalida || '' %></p>
+    </div>
+
+    <!-- B) Información validada con empresa -->
+    <div class="keep-with-next mt-4">
+      <div class="section-header">Información validada con empresa — Empleo <%= index + 1 %></div>
+    </div>
+    <div class="empleo-section avoid-break">
+      <div class="grid-2">
+        <p class="info-line"><strong>Empresa:</strong> <%= emp.empresaValidada || '' %></p>
+        <p class="info-line"><strong>Teléfono:</strong> <%= emp.telefonoValidado || '' %></p>
+        <p class="info-line"><strong>Nombre del contacto:</strong> <%= emp.contactoValidado || '' %></p>
+        <p class="info-line"><strong>Puesto:</strong> <%= emp.puestoContacto || '' %></p>
+        <p class="info-line"><strong>Tiempo laborado:</strong> <%= emp.tiempoLaboradoValidado || '' %></p>
+        <p class="info-line"><strong>Puesto ocupado (inicial):</strong> <%= emp.puestoInicialValidado || '' %></p>
+        <p class="info-line"><strong>Puesto final:</strong> <%= emp.puestoFinalValidado || '' %></p>
+        <p class="info-line"><strong>Nombre y/o puesto de jefe directo:</strong> <%= emp.jefeValidado || '' %></p>
+        <p class="info-line"><strong>Sueldo inicial:</strong> <%= emp.sueldoInicialValidado || '' %></p>
+        <p class="info-line"><strong>Sueldo final:</strong> <%= emp.sueldoFinalValidado || '' %></p>
+        <p class="info-line col-span-2"><strong>Motivo de salida:</strong> <%= emp.motivoSalidaValidado || '' %></p>
+        <p class="info-line"><strong>¿Es recomendable?:</strong> <%= emp.recomendable || '' %></p>
+        <p class="info-line"><strong>¿Es recontratable?:</strong> <%= emp.recontratable || '' %></p>
+      </div>
+    </div>
+
+    <!-- C) Gráfica de Actualización Laboral -->
+    <div class="keep-with-next mt-4">
+      <div class="section-header">XII. GRÁFICA DE ACTUALIZACIÓN LABORAL — Empleo <%= index + 1 %></div>
+    </div>
+    <div class="avoid-break">
+      <table>
+        <thead>
+          <tr>
+            <th class="text-left">Característica</th>
+            <th>MALA</th>
+            <th>REGULAR</th>
+            <th>BUENA</th>
+            <th>EXCELENTE</th>
+          </tr>
+        </thead>
+        <tbody>
+          <%
+            var graficaItems = [
+              { key: 'calidadTrabajo', label: 'Calidad en el trabajo' },
+              { key: 'puntualidad', label: 'Puntualidad y asistencia' },
+              { key: 'honradez', label: 'Honradez e integridad' },
+              { key: 'responsabilidad', label: 'Responsabilidad' },
+              { key: 'adaptacion', label: 'Adaptación al trabajo' },
+              { key: 'actitudJefes', label: 'Actitud hacia sus jefes' },
+              { key: 'actitudCompaneros', label: 'Actitud hacia sus compañeros' }
+            ];
+            graficaItems.forEach(function(graf) {
+          %>
+          <tr>
+            <td class="text-left"><%= graf.label %></td>
+            <td><span class="grafica-mark <%= emp[graf.key] === 'MALA' ? 'grafica-selected' : 'grafica-empty' %>">●</span></td>
+            <td><span class="grafica-mark <%= emp[graf.key] === 'REGULAR' ? 'grafica-selected' : 'grafica-empty' %>">●</span></td>
+            <td><span class="grafica-mark <%= emp[graf.key] === 'BUENA' ? 'grafica-selected' : 'grafica-empty' %>">●</span></td>
+            <td><span class="grafica-mark <%= emp[graf.key] === 'EXCELENTE' ? 'grafica-selected' : 'grafica-empty' %>">●</span></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+      <p style="font-size:7pt;font-style:italic;margin-bottom:10px;">Opción abierta a ser calificada por el Jefe Directo</p>
+    </div>
+
+    <div class="avoid-break">
+      <p class="info-line mt-4"><strong>COMENTARIOS Y OBSERVACIONES GENERALES DE LA REFERENCIA:</strong> <%= emp.comentariosReferencia || '' %></p>
+    </div>
+
+  <% }); %>
+
+  <!-- ============================================
+       XIII. CONCLUSIÓN DE LA INVESTIGACIÓN
+       ============================================ -->
+  <div class="page-break"></div>
+  <div class="keep-with-next">
+    <div class="section-header">CONCLUSIÓN DE LA INVESTIGACIÓN</div>
+  </div>
+  <div class="avoid-break mb-4">
+    <div class="empleo-section">
+      <p class="info-line"><strong>Personal:</strong> <%= data.conclusionPersonal || '' %></p>
+      <p class="info-line"><strong>Laboral:</strong> <%= data.conclusionLaboral || '' %></p>
+      <p class="info-line"><strong>Socioeconómica:</strong> <%= data.conclusionSocio || '' %></p>
+    </div>
+  </div>
+
+  <!-- DICTAMEN -->
+  <% 
+    var dictamenClass = '';
+    if (data.dictamen === 'RECOMENDABLE') dictamenClass = 'recomendable';
+    else if (data.dictamen === 'RECOMENDABLE CON RESERVAS') dictamenClass = 'reservas';
+    else if (data.dictamen === 'NO RECOMENDABLE') dictamenClass = 'no-recomendable';
+  %>
+  <div class="dictamen-box <%= dictamenClass %> avoid-break">
+    <p>Por lo anterior, el investigado es considerado una persona:</p>
+    <p class="dictamen-option <%= data.dictamen === 'RECOMENDABLE' ? 'selected' : '' %>">
+      (<%= data.dictamen === 'RECOMENDABLE' ? '●' : '○' %>) Recomendable
+    </p>
+    <p class="dictamen-option <%= data.dictamen === 'RECOMENDABLE CON RESERVAS' ? 'selected' : '' %>">
+      (<%= data.dictamen === 'RECOMENDABLE CON RESERVAS' ? '●' : '○' %>) Recomendable con reservas
+    </p>
+    <p class="dictamen-option <%= data.dictamen === 'NO RECOMENDABLE' ? 'selected' : '' %>">
+      (<%= data.dictamen === 'NO RECOMENDABLE' ? '●' : '○' %>) No recomendable
+    </p>
+  </div>
+
+  <!-- FOTOS -->
+  <div class="keep-with-next">
+    <div class="section-header">FOTOS</div>
+  </div>
+  <div class="photos-grid avoid-break mb-4">
+    <div>
+      <div class="photo-container">
+        <% if (data.fotos && data.fotos.candidato) { %>
+          <img src="<%= data.fotos.candidato %>" alt="Candidato" />
+        <% } else { %>
+          <span class="photo-placeholder">Del Candidato</span>
+        <% } %>
+      </div>
+      <p class="photo-label">Del Candidato</p>
+    </div>
+    <div>
+      <div class="photo-container">
+        <% if (data.fotos && data.fotos.fachada) { %>
+          <img src="<%= data.fotos.fachada %>" alt="Fachada" />
+        <% } else { %>
+          <span class="photo-placeholder">Fachada Domicilio</span>
+        <% } %>
+      </div>
+      <p class="photo-label">Fachada Domicilio con Candidato</p>
+    </div>
+    <div>
+      <div class="photo-container">
+        <% if (data.fotos && data.fotos.interior) { %>
+          <img src="<%= data.fotos.interior %>" alt="Interior" />
+        <% } else { %>
+          <span class="photo-placeholder">Interior con Candidato</span>
+        <% } %>
+      </div>
+      <p class="photo-label">Interior con Candidato</p>
+    </div>
+  </div>
+
+  <!-- NOTA INFONAVIT -->
+  <div class="nota-footer avoid-break">
+    <p><strong>Nota Infonavit:</strong> La plataforma de Infonavit está restringida, por lo que se verifica lo reportado en entrevista y periodos inactivos (previa autorización del cliente).</p>
+  </div>
+
+</div><!-- end .content -->
+
+</body>
+</html>

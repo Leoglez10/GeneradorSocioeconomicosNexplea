@@ -1,0 +1,25 @@
+# Dependencias
+node_modules/
+WEB/app/node_modules/
+server/node_modules/
+
+# Archivos de build (se reconstruyen en Docker)
+WEB/app/dist/
+
+# Archivos de desarrollo
+*.md
+.git/
+.gitignore
+.vscode/
+*.pdf
+test_*.pdf
+temp_*
+
+# Configuraciones de desarrollo
+WEB/app/eslint.config.js
+concurrently*
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini

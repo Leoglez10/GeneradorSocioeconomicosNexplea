@@ -1,0 +1,15 @@
+{
+  "name": "generador-socioeconomicos",
+  "private": true,
+  "scripts": {
+    "dev:client": "cd WEB/app && npm run dev",
+    "dev:server": "cd server && node --watch index.js",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "build": "cd WEB/app && npm run build",
+    "start": "cd server && node index.js",
+    "install:all": "cd WEB/app && npm install && cd ../../server && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}

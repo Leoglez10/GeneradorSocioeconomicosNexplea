@@ -1,0 +1,16 @@
+{
+  "name": "ese-pdf-server",
+  "version": "1.0.0",
+  "description": "Servidor PDF para Estudio Socioeconómico con Puppeteer",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "ejs": "^3.1.10",
+    "express": "^4.21.0",
+    "puppeteer": "^23.0.0"
+  }
+}
