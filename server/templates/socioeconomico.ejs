@@ -34,7 +34,7 @@
   }
 
   /* ============================================
-     WATERMARK - fixed so it repeats on every page
+     WATERMARK - diagonal tenue de fondo
      ============================================ */
   .watermark {
     position: fixed;
@@ -42,9 +42,24 @@
     left: 50%;
     transform: translate(-50%, -50%) rotate(-25deg);
     width: 65%;
-    opacity: 0.12;
+    opacity: 0.07;
     pointer-events: none;
     z-index: 0;
+    filter: grayscale(30%);
+  }
+
+  /* ============================================
+     CORNER LOGO - esquina inferior derecha
+     ============================================ */
+  .corner-logo {
+    position: fixed;
+    bottom: 18px;
+    right: 18px;
+    width: 90px;
+    opacity: 0.65;
+    pointer-events: none;
+    z-index: 5;
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.18));
   }
 
   /* ============================================
@@ -388,9 +403,11 @@
 </head>
 <body>
 
-<!-- WATERMARK (fixed = repeats on every printed page) -->
+<!-- WATERMARK diagonal tenue -->
 <% if (data._logoBase64) { %>
 <img class="watermark" src="data:image/png;base64,<%= data._logoBase64 %>" alt="" />
+<!-- CORNER LOGO - esquina inferior derecha -->
+<img class="corner-logo" src="data:image/png;base64,<%= data._logoBase64 %>" alt="" />
 <% } %>
 
 <div class="content">
