@@ -7,16 +7,27 @@ const { closeBrowser } = require('./utils/puppeteer');
 const app = express();
 const PORT = process.env.PORT || 3001;
 const isProduction = process.env.NODE_ENV === 'production';
+const frontendOrigins = (process.env.FRONTEND_URLS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const defaultProductionOrigins = ['https://generadorsocioeconomicosnexplea-production.up.railway.app'];
+
+const devOrigins = ['http://localhost:5173', 'http://localhost:4173', 'http://127.0.0.1:5173'];
+const allowedOrigins = isProduction
+  ? (frontendOrigins.length ? frontendOrigins : defaultProductionOrigins)
+  : [...new Set([...frontendOrigins, ...devOrigins])];
 
 // --- MIDDLEWARE ---
-if (!isProduction) {
-  // En desarrollo, CORS abierto para Vite dev server
-  app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:4173', 'http://127.0.0.1:5173'],
-    methods: ['GET', 'POST'],
-    credentials: true,
-  }));
-}
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  methods: ['GET', 'POST', 'OPTIONS'],
+  credentials: true,
+}));
 
 // Body parser con límite alto para fotos base64
 app.use(express.json({ limit: '50mb' }));
@@ -53,6 +64,7 @@ if (isProduction) {
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 ESE PDF Server running on http://localhost:${PORT}`);
   console.log(`   Mode: ${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'}`);
+  console.log(`   Allowed CORS origins: ${allowedOrigins.length ? allowedOrigins.join(', ') : '(none configured)'}`);
   console.log(`   Health check: http://localhost:${PORT}/api/health`);
   console.log(`   PDF endpoint: POST http://localhost:${PORT}/api/generate-pdf\n`);
 });

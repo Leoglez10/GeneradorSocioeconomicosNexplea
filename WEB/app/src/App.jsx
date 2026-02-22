@@ -1,3 +1,4 @@
+const API_BASE_URL = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');
 import React, { useState } from 'react';
 import { ChevronRight, ChevronLeft, Plus, Trash2, Printer, FileText, CheckCircle, RotateCcw, Upload } from 'lucide-react';
 import nexpleaLogo from './assets/nexplea.png';
@@ -172,7 +173,7 @@ export default function App() {
   const generatePDF = async () => {
     setIsGenerating(true);
     try {
-      const response = await fetch('/api/generate-pdf', {
+      const response = await fetch(`${API_BASE_URL}/api/generate-pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
