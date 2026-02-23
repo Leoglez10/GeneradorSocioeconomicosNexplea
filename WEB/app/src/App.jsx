@@ -591,7 +591,10 @@ export default function App() {
         
         {/* HEADER */}
         <div className="bg-blue-800 px-6 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-white flex items-center"><FileText className="mr-2" /> Generador ESE</h1>
+          <div className="flex items-center gap-3">
+            <img src={nexpleaLogo} alt="Nexplea" className="h-10 object-contain" />
+            <h1 className="text-2xl font-bold text-white flex items-center"><FileText className="mr-2" /> Generador ESE</h1>
+          </div>
           <div className="text-blue-100 text-sm">Paso {currentStep} de {totalSteps}</div>
         </div>
 
