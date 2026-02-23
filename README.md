@@ -1,4 +1,7 @@
 # Generador de Estudios Socioeconómicos
+<img width="893" height="432" alt="image" src="https://github.com/user-attachments/assets/93f1ff38-96d8-43aa-95a5-149712f56e5d" />
+
+<img width="622" height="797" alt="image" src="https://github.com/user-attachments/assets/f68c1ba9-4da1-4380-a2ba-1768c1ecd5a9" />
 
 Plataforma web enfocada en transformar procesos manuales de evaluación en un flujo digital, claro y profesional.
 
