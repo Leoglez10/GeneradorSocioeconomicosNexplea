@@ -1,7 +1,7 @@
 const API_BASE_URL = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');
 import React, { useState } from 'react';
 import { ChevronRight, ChevronLeft, Plus, Trash2, Printer, FileText, CheckCircle, RotateCcw, Upload } from 'lucide-react';
-import nexpleaLogo from './assets/nexplea.png';
+import nexpleaLogo from './assets/nexplea2.png';
 
 // --- ESTADO INICIAL ---
 const initialData = {
