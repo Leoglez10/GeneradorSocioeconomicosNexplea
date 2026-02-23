@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const ejs = require('ejs');
+const { PDFDocument } = require('pdf-lib');
 const { generatePdf } = require('../utils/puppeteer');
 
 const router = express.Router();
@@ -102,6 +103,23 @@ function normalizeFormData(raw) {
     d.fotos = { candidato: '', fachada: '', interior: '' };
   }
 
+  // Fotos extras
+  if (!Array.isArray(d.fotosExtras)) d.fotosExtras = [];
+  d.fotosExtras = d.fotosExtras.map(f => ({
+    imagen: f.imagen || '',
+    pieDeFoto: f.pieDeFoto || ''
+  }));
+
+  // Documentos extras
+  if (!Array.isArray(d.documentosExtras)) d.documentosExtras = [];
+  d.documentosExtras = d.documentosExtras.map(doc => ({
+    archivo: doc.archivo || '',
+    nombre: doc.nombre || ''
+  }));
+
+  // Marca de agua en extras
+  if (typeof d.marcaDeAguaEnExtras !== 'boolean') d.marcaDeAguaEnExtras = true;
+
   return d;
 }
 
@@ -132,16 +150,88 @@ router.post('/generate-pdf', async (req, res) => {
     // Generar PDF con Puppeteer
     const pdfBuffer = await generatePdf(html);
 
+    // --- Fusionar documentos PDF extra si existen ---
+    const docsExtras = formData.documentosExtras.filter(d => d.archivo);
+    let finalPdfBuffer = pdfBuffer;
+
+    if (docsExtras.length > 0) {
+      try {
+        const basePdf = await PDFDocument.load(pdfBuffer);
+
+        // Preparar la imagen del logo para marca de agua si es necesario
+        let logoImage = null;
+        let logoDims = null;
+        if (formData.marcaDeAguaEnExtras && logoBase64) {
+          const logoBytes = Buffer.from(logoBase64, 'base64');
+          logoImage = await basePdf.embedPng(logoBytes).catch(() => null);
+          if (logoImage) {
+            logoDims = logoImage.scale(1);
+          }
+        }
+
+        for (const docExtra of docsExtras) {
+          try {
+            // Extraer bytes del base64 data URL
+            const base64Data = docExtra.archivo.replace(/^data:[^;]+;base64,/, '');
+            const docBytes = Buffer.from(base64Data, 'base64');
+            const externalPdf = await PDFDocument.load(docBytes, { ignoreEncryption: true });
+            const copiedPages = await basePdf.copyPages(externalPdf, externalPdf.getPageIndices());
+
+            for (const page of copiedPages) {
+              basePdf.addPage(page);
+
+              // Agregar marca de agua si está habilitado
+              if (logoImage && logoDims) {
+                const { width, height } = page.getSize();
+
+                // Marca de agua diagonal central (opacidad ~0.07)
+                const wmWidth = width * 0.65;
+                const wmScale = wmWidth / logoDims.width;
+                const wmHeight = logoDims.height * wmScale;
+                page.drawImage(logoImage, {
+                  x: (width - wmWidth) / 2,
+                  y: (height - wmHeight) / 2,
+                  width: wmWidth,
+                  height: wmHeight,
+                  opacity: 0.07,
+                });
+
+                // Logo esquina inferior derecha (opacidad ~0.65)
+                const cornerWidth = 90;
+                const cornerScale = cornerWidth / logoDims.width;
+                const cornerHeight = logoDims.height * cornerScale;
+                page.drawImage(logoImage, {
+                  x: width - cornerWidth - 18,
+                  y: 18,
+                  width: cornerWidth,
+                  height: cornerHeight,
+                  opacity: 0.65,
+                });
+              }
+            }
+          } catch (docErr) {
+            console.warn(`⚠️ Could not merge extra document "${docExtra.nombre}":`, docErr.message);
+          }
+        }
+
+        const mergedBytes = await basePdf.save();
+        finalPdfBuffer = Buffer.from(mergedBytes);
+      } catch (mergeErr) {
+        console.error('⚠️ Error merging extra documents, returning base PDF:', mergeErr.message);
+        // Si falla la fusión, devolver el PDF base
+      }
+    }
+
     // Enviar PDF como respuesta
     const fileName = `Estudio_Socioeconomico_${(formData.nombre || 'Candidato').replace(/\s+/g, '_')}.pdf`;
     
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${fileName}"`,
-      'Content-Length': pdfBuffer.length,
+      'Content-Length': finalPdfBuffer.length,
     });
 
-    res.send(pdfBuffer);
+    res.send(finalPdfBuffer);
 
   } catch (error) {
     console.error('❌ Error generating PDF:', error);

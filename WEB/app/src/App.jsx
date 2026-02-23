@@ -1,6 +1,6 @@
 const API_BASE_URL = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');
 import React, { useState } from 'react';
-import { ChevronRight, ChevronLeft, Plus, Trash2, Printer, FileText, CheckCircle, RotateCcw, Upload } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Plus, Trash2, Printer, FileText, CheckCircle, RotateCcw, Upload, ImagePlus, FilePlus2 } from 'lucide-react';
 import nexpleaLogo from './assets/nexplea2.png';
 
 // --- ESTADO INICIAL ---
@@ -92,7 +92,12 @@ const initialData = {
 
   // 13. Conclusión y Fotos
   conclusionPersonal: '', conclusionLaboral: '', conclusionSocio: '', dictamen: '',
-  fotos: { candidato: '', fachada: '', interior: '' }
+  fotos: { candidato: '', fachada: '', interior: '' },
+
+  // 14. Extras (fotos y documentos adicionales)
+  fotosExtras: [],
+  documentosExtras: [],
+  marcaDeAguaEnExtras: true
 };
 
 export default function App() {
@@ -161,6 +166,73 @@ export default function App() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  // --- EXTRAS HANDLERS ---
+  const totalExtras = formData.fotosExtras.length + formData.documentosExtras.length;
+  const MAX_EXTRAS = 10;
+
+  const addFotoExtra = () => {
+    if (totalExtras >= MAX_EXTRAS) return;
+    setFormData(prev => ({
+      ...prev,
+      fotosExtras: [...prev.fotosExtras, { id: Date.now(), imagen: '', pieDeFoto: '' }]
+    }));
+  };
+
+  const removeFotoExtra = (id) => {
+    setFormData(prev => ({
+      ...prev,
+      fotosExtras: prev.fotosExtras.filter(f => f.id !== id)
+    }));
+  };
+
+  const handleFotoExtraUpload = (id, e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFormData(prev => ({
+        ...prev,
+        fotosExtras: prev.fotosExtras.map(f => f.id === id ? { ...f, imagen: reader.result } : f)
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFotoExtraPie = (id, value) => {
+    setFormData(prev => ({
+      ...prev,
+      fotosExtras: prev.fotosExtras.map(f => f.id === id ? { ...f, pieDeFoto: value } : f)
+    }));
+  };
+
+  const addDocExtra = () => {
+    if (totalExtras >= MAX_EXTRAS) return;
+    setFormData(prev => ({
+      ...prev,
+      documentosExtras: [...prev.documentosExtras, { id: Date.now(), archivo: '', nombre: '' }]
+    }));
+  };
+
+  const removeDocExtra = (id) => {
+    setFormData(prev => ({
+      ...prev,
+      documentosExtras: prev.documentosExtras.filter(d => d.id !== id)
+    }));
+  };
+
+  const handleDocExtraUpload = (id, e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFormData(prev => ({
+        ...prev,
+        documentosExtras: prev.documentosExtras.map(d => d.id === id ? { ...d, archivo: reader.result, nombre: file.name } : d)
+      }));
+    };
+    reader.readAsDataURL(file);
   };
 
   const resetForm = () => {
@@ -571,6 +643,106 @@ export default function App() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* FOTOS EXTRAS */}
+      <div className="bg-yellow-50 p-6 rounded-lg border border-yellow-200 space-y-4">
+        <div className="flex justify-between items-center border-b border-yellow-200 pb-2">
+          <h3 className="text-xl font-bold text-yellow-800">Fotos Extra</h3>
+          <button
+            onClick={addFotoExtra}
+            disabled={totalExtras >= MAX_EXTRAS}
+            className="flex items-center text-sm bg-yellow-100 text-yellow-700 px-3 py-1 rounded hover:bg-yellow-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ImagePlus className="w-4 h-4 mr-1" /> Agregar Foto Extra
+          </button>
+        </div>
+        {totalExtras >= MAX_EXTRAS && (
+          <p className="text-xs text-red-500">Se alcanzó el límite de {MAX_EXTRAS} elementos extra (fotos + documentos).</p>
+        )}
+        {formData.fotosExtras.length === 0 && (
+          <p className="text-sm text-gray-500 italic">No se han agregado fotos extra.</p>
+        )}
+        <div className="space-y-4">
+          {formData.fotosExtras.map((foto, index) => (
+            <div key={foto.id} className="flex flex-col md:flex-row items-start gap-4 p-4 border rounded-md bg-white relative">
+              <div className="absolute top-2 right-2">
+                <button onClick={() => removeFotoExtra(foto.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+              </div>
+              <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50 min-w-[150px]">
+                <label className="cursor-pointer flex flex-col items-center">
+                  <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                  <span className="text-xs font-medium text-gray-600">Foto Extra {index + 1}</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFotoExtraUpload(foto.id, e)} />
+                </label>
+                {foto.imagen && <img src={foto.imagen} alt={`Extra ${index + 1}`} className="mt-2 h-24 object-cover rounded" />}
+              </div>
+              <div className="flex-1 w-full">
+                <label className="block text-sm font-medium text-gray-700">Pie de foto / Descripción</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Comprobante de domicilio, Identificación oficial..."
+                  value={foto.pieDeFoto}
+                  onChange={(e) => handleFotoExtraPie(foto.id, e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* DOCUMENTOS EXTRAS */}
+      <div className="bg-purple-50 p-6 rounded-lg border border-purple-200 space-y-4">
+        <div className="flex justify-between items-center border-b border-purple-200 pb-2">
+          <h3 className="text-xl font-bold text-purple-800">Documentos Extra (PDF)</h3>
+          <button
+            onClick={addDocExtra}
+            disabled={totalExtras >= MAX_EXTRAS}
+            className="flex items-center text-sm bg-purple-100 text-purple-700 px-3 py-1 rounded hover:bg-purple-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <FilePlus2 className="w-4 h-4 mr-1" /> Agregar Documento Extra
+          </button>
+        </div>
+        {totalExtras >= MAX_EXTRAS && (
+          <p className="text-xs text-red-500">Se alcanzó el límite de {MAX_EXTRAS} elementos extra (fotos + documentos).</p>
+        )}
+        {formData.documentosExtras.length === 0 && (
+          <p className="text-sm text-gray-500 italic">No se han agregado documentos extra.</p>
+        )}
+        <div className="space-y-3">
+          {formData.documentosExtras.map((doc, index) => (
+            <div key={doc.id} className="flex items-center gap-4 p-3 border rounded-md bg-white relative">
+              <div className="absolute top-2 right-2">
+                <button onClick={() => removeDocExtra(doc.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+              </div>
+              <label className="cursor-pointer flex items-center gap-2 border-2 border-dashed border-gray-300 rounded-lg px-4 py-2 bg-gray-50 hover:bg-gray-100">
+                <FilePlus2 className="w-5 h-5 text-gray-400" />
+                <span className="text-xs font-medium text-gray-600">Seleccionar PDF</span>
+                <input type="file" accept=".pdf,application/pdf" className="hidden" onChange={(e) => handleDocExtraUpload(doc.id, e)} />
+              </label>
+              {doc.nombre && (
+                <span className="text-sm text-gray-700 truncate max-w-xs">📄 {doc.nombre}</span>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Checkbox marca de agua */}
+        {formData.documentosExtras.length > 0 && (
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="marcaDeAguaEnExtras"
+              checked={formData.marcaDeAguaEnExtras}
+              onChange={(e) => setFormData(prev => ({ ...prev, marcaDeAguaEnExtras: e.target.checked }))}
+              className="rounded text-purple-600 focus:ring-purple-500"
+            />
+            <label htmlFor="marcaDeAguaEnExtras" className="text-sm text-gray-700">
+              Agregar marca de agua a los documentos PDF extra
+            </label>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col sm:flex-row justify-center gap-4 mt-8">

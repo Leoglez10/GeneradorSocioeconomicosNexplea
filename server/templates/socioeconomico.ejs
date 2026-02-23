@@ -399,6 +399,33 @@
     orphans: 3;
     widows: 3;
   }
+
+  /* ============================================
+     EXTRA PHOTO PAGES
+     ============================================ */
+  .extra-photo-page {
+    page-break-before: always;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    padding: 20px 0;
+  }
+  .extra-photo-page img {
+    max-width: 100%;
+    max-height: 72vh;
+    object-fit: contain;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+  }
+  .extra-photo-caption {
+    text-align: center;
+    font-weight: 600;
+    font-size: 12pt;
+    margin-top: 16px;
+    color: #1f2937;
+  }
 </style>
 </head>
 <body>
@@ -1000,6 +1027,20 @@
   <div class="nota-footer avoid-break">
     <p><strong>Nota Infonavit:</strong> La plataforma de Infonavit está restringida, por lo que se verifica lo reportado en entrevista y periodos inactivos (previa autorización del cliente).</p>
   </div>
+
+  <!-- FOTOS EXTRAS -->
+  <% if (data.fotosExtras && data.fotosExtras.length > 0) { %>
+    <% data.fotosExtras.forEach(function(foto, idx) { %>
+      <% if (foto.imagen) { %>
+        <div class="extra-photo-page">
+          <img src="<%= foto.imagen %>" alt="Foto Extra <%= idx + 1 %>" />
+          <% if (foto.pieDeFoto) { %>
+            <p class="extra-photo-caption"><%= foto.pieDeFoto %></p>
+          <% } %>
+        </div>
+      <% } %>
+    <% }); %>
+  <% } %>
 
 </div><!-- end .content -->
 
