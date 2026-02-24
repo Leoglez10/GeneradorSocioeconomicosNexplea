@@ -1,6 +1,6 @@
 const API_BASE_URL = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');
-import React, { useState } from 'react';
-import { ChevronRight, ChevronLeft, Plus, Trash2, Printer, FileText, CheckCircle, RotateCcw, Upload, ImagePlus, FilePlus2, Download, Save } from 'lucide-react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { ChevronRight, ChevronLeft, Plus, Trash2, Printer, FileText, CheckCircle, RotateCcw, Upload, ImagePlus, FilePlus2, Download, Save, FileUp, X, ArrowRight, FolderOpen, Home, AlertTriangle, Info, XCircle } from 'lucide-react';
 import nexpleaLogo from './assets/nexplea2.png';
 
 // --- ESTADO INICIAL ---
@@ -102,11 +102,36 @@ const initialData = {
 };
 
 export default function App() {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState(initialData);
+  // Restaurar datos de localStorage al iniciar
+  const [currentStep, setCurrentStep] = useState(() => {
+    try { const s = localStorage.getItem('ese_step'); return s ? Number(s) : 1; } catch { return 1; }
+  });
+  const [formData, setFormData] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ese_formData');
+      if (saved) { const parsed = JSON.parse(saved); return { ...initialData, ...parsed }; }
+    } catch {}
+    return initialData;
+  });
   const [isGenerating, setIsGenerating] = useState(false);
   const [showProgressMenu, setShowProgressMenu] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(() => {
+    try { return !localStorage.getItem('ese_formData'); } catch { return true; }
+  });
+  const [showLoadModal, setShowLoadModal] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [modal, setModal] = useState(null); // { type: 'confirm'|'alert', title, message, onConfirm, variant: 'warning'|'danger'|'error'|'info' }
+  const fileInputRef = useRef(null);
   const totalSteps = 10;
+
+  // Auto-guardar en localStorage cada vez que cambian los datos o el paso
+  useEffect(() => {
+    try {
+      localStorage.setItem('ese_formData', JSON.stringify(formData));
+      localStorage.setItem('ese_step', String(currentStep));
+    } catch {}
+  }, [formData, currentStep]);
 
   // --- HANDLERS ---
   const handleChange = (e) => {
@@ -245,10 +270,35 @@ export default function App() {
   };
 
   const resetForm = () => {
-    if (window.confirm('¿Estás seguro de borrar todos los datos?')) {
-      setFormData(initialData);
-      setCurrentStep(1);
-    }
+    setModal({
+      type: 'confirm',
+      variant: 'danger',
+      title: 'Borrar todos los datos',
+      message: '¿Estás seguro de que deseas borrar todos los datos del formulario? Esta acción no se puede deshacer.',
+      confirmText: 'Sí, borrar todo',
+      onConfirm: () => {
+        setFormData(initialData);
+        setCurrentStep(1);
+        setShowWelcome(true);
+        try { localStorage.removeItem('ese_formData'); localStorage.removeItem('ese_step'); } catch {}
+        setModal(null);
+      }
+    });
+  };
+
+  const goHome = () => {
+    setModal({
+      type: 'confirm',
+      variant: 'info',
+      title: 'Volver al inicio',
+      message: 'Esto te llevará a la página de inicio. Asegúrate de haber guardado tu progreso antes de continuar.',
+      confirmText: 'Sí, ir al inicio',
+      onConfirm: () => {
+        setShowWelcome(true);
+        setShowProgressMenu(false);
+        setModal(null);
+      }
+    });
   };
 
   const exportProgress = () => {
@@ -264,6 +314,33 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
+  const processFile = useCallback((file) => {
+    setLoadError('');
+    if (!file) return;
+    if (!file.name.endsWith('.json')) {
+      setLoadError('Por favor selecciona un archivo con extensión .json');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const imported = JSON.parse(ev.target.result);
+        if (imported && typeof imported === 'object' && !Array.isArray(imported)) {
+          setFormData({ ...initialData, ...imported });
+          setCurrentStep(1);
+          setShowWelcome(false);
+          setShowLoadModal(false);
+          setLoadError('');
+        } else {
+          setLoadError('El archivo no tiene un formato válido. Asegúrate de que sea un archivo generado por esta app.');
+        }
+      } catch {
+        setLoadError('Error al leer el archivo. Asegúrate de que sea un archivo JSON válido.');
+      }
+    };
+    reader.readAsText(file);
+  }, []);
+
   const importProgress = () => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -271,25 +348,30 @@ export default function App() {
     input.onchange = (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        try {
-          const imported = JSON.parse(ev.target.result);
-          if (imported && typeof imported === 'object' && !Array.isArray(imported)) {
-            setFormData({ ...initialData, ...imported });
-            setCurrentStep(1);
-            alert('Progreso cargado correctamente.');
-          } else {
-            alert('El archivo no tiene un formato válido.');
-          }
-        } catch {
-          alert('Error al leer el archivo. Asegúrate de que sea un archivo JSON válido.');
-        }
-      };
-      reader.readAsText(file);
+      processFile(file);
     };
     input.click();
   };
+
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+  }, [processFile]);
 
   const generatePDF = async () => {
     setIsGenerating(true);
@@ -316,7 +398,13 @@ export default function App() {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error al generar el PDF:', error);
-      alert(`Hubo un error al generar el PDF: ${error.message}`);
+      setModal({
+        type: 'alert',
+        variant: 'error',
+        title: 'Error al generar PDF',
+        message: `Hubo un error al generar el PDF: ${error.message}`,
+        onConfirm: () => setModal(null)
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -825,7 +913,199 @@ export default function App() {
     </div>
   );
 
-  // --- RENDER PRINCIPAL ---
+  // --- MODAL DE ALERTAS/CONFIRMACIÓN PERSONALIZADO ---
+  const CustomModal = () => {
+    if (!modal) return null;
+    const variantConfig = {
+      warning: { bg: 'bg-yellow-100', iconBg: 'bg-yellow-500', icon: <AlertTriangle className="w-6 h-6 text-white" />, btnColor: 'bg-yellow-500 hover:bg-yellow-600 focus:ring-yellow-400' },
+      danger: { bg: 'bg-red-100', iconBg: 'bg-red-500', icon: <Trash2 className="w-6 h-6 text-white" />, btnColor: 'bg-red-500 hover:bg-red-600 focus:ring-red-400' },
+      error: { bg: 'bg-red-100', iconBg: 'bg-red-500', icon: <XCircle className="w-6 h-6 text-white" />, btnColor: 'bg-red-500 hover:bg-red-600 focus:ring-red-400' },
+      info: { bg: 'bg-blue-100', iconBg: 'bg-blue-500', icon: <Info className="w-6 h-6 text-white" />, btnColor: 'bg-blue-500 hover:bg-blue-600 focus:ring-blue-400' },
+    };
+    const v = variantConfig[modal.variant] || variantConfig.info;
+
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={() => setModal(null)}>
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in"></div>
+        <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-fade-in" onClick={(e) => e.stopPropagation()}>
+          {/* Franja superior de color */}
+          <div className={`${v.bg} px-6 pt-6 pb-4 flex items-start gap-4`}>
+            <div className={`${v.iconBg} w-12 h-12 rounded-full flex items-center justify-center shrink-0 shadow-md`}>
+              {v.icon}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-bold text-gray-900">{modal.title}</h3>
+              <p className="text-sm text-gray-700 mt-1 leading-relaxed">{modal.message}</p>
+            </div>
+            <button onClick={() => setModal(null)} className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-white/50 shrink-0">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          {/* Botones */}
+          <div className="px-6 py-4 flex justify-end gap-3 bg-gray-50">
+            {modal.type === 'confirm' && (
+              <button onClick={() => setModal(null)} className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-300">
+                Cancelar
+              </button>
+            )}
+            <button onClick={modal.onConfirm} className={`px-5 py-2.5 text-sm font-medium text-white rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-sm ${v.btnColor}`}>
+              {modal.type === 'confirm' ? (modal.confirmText || 'Confirmar') : 'Entendido'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // --- MODAL DE CARGAR PROGRESO ---
+  const LoadModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => { setShowLoadModal(false); setLoadError(''); }}>
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+      <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 sm:p-8 animate-fade-in" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+              <Upload className="w-5 h-5 text-blue-600" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-800">Cargar Progreso Guardado</h2>
+          </div>
+          <button onClick={() => { setShowLoadModal(false); setLoadError(''); }} className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Explicación */}
+        <div className="bg-blue-50 rounded-xl p-4 mb-6">
+          <p className="text-sm text-blue-800 font-medium mb-2">¿Qué archivo debo subir?</p>
+          <ul className="text-sm text-blue-700 space-y-1">
+            <li className="flex items-start gap-2"><span className="mt-1">•</span> Un archivo <strong>.json</strong> generado previamente por esta app.</li>
+            <li className="flex items-start gap-2"><span className="mt-1">•</span> Se llama algo como <strong>ESE_Progreso_Nombre.json</strong></li>
+            <li className="flex items-start gap-2"><span className="mt-1">•</span> Lo puedes haber recibido por WhatsApp, email o USB.</li>
+          </ul>
+        </div>
+
+        {/* Zona Drag & Drop */}
+        <div
+          onDragOver={handleDragOver}
+          onDragEnter={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`border-2 border-dashed rounded-xl p-8 sm:p-10 text-center cursor-pointer transition-all duration-200 ${
+            isDragging
+              ? 'border-blue-500 bg-blue-50 scale-[1.02]'
+              : 'border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50/50'
+          }`}
+        >
+          <FileUp className={`w-12 h-12 mx-auto mb-3 transition-colors ${isDragging ? 'text-blue-500' : 'text-gray-400'}`} />
+          <p className={`text-base font-semibold mb-1 ${isDragging ? 'text-blue-600' : 'text-gray-700'}`}>
+            {isDragging ? 'Suelta el archivo aquí' : 'Arrastra tu archivo aquí'}
+          </p>
+          <p className="text-sm text-gray-500">
+            o <span className="text-blue-600 font-medium hover:underline">haz clic para seleccionar</span>
+          </p>
+          <p className="text-xs text-gray-400 mt-2">Solo archivos .json</p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={(e) => { if (e.target.files[0]) processFile(e.target.files[0]); e.target.value = ''; }}
+          />
+        </div>
+
+        {/* Error */}
+        {loadError && (
+          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+            <X className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+            <p className="text-sm text-red-700">{loadError}</p>
+          </div>
+        )}
+
+        {/* Botón cancelar */}
+        <div className="mt-6 flex justify-end">
+          <button onClick={() => { setShowLoadModal(false); setLoadError(''); }} className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // --- PANTALLA DE BIENVENIDA ---
+  if (showWelcome) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4 py-8 font-sans">
+        <div className="max-w-2xl w-full">
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+            {/* Header decorativo */}
+            <div className="bg-blue-800 px-6 py-8 text-center">
+              <img src={nexpleaLogo} alt="Nexplea" className="h-16 mx-auto mb-4 object-contain" />
+              <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">Bienvenido</h1>
+              <p className="text-blue-200 text-lg">Generador Oficial de Estudio Socioeconómico</p>
+            </div>
+
+            {/* Contenido */}
+            <div className="p-6 sm:p-10">
+              <p className="text-gray-600 text-center text-base sm:text-lg leading-relaxed mb-8">
+                Genera <strong>Estudios Socioeconómicos en formato PDF</strong> de manera profesional.
+                Llena un formulario paso a paso y al final obtén un documento listo para entregar con
+                toda la información del candidato.
+              </p>
+
+              <div className="border-t border-gray-200 pt-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Botón Iniciar Nuevo */}
+                  <button
+                    onClick={() => {
+                      setFormData({...initialData, fecha: new Date().toISOString().split('T')[0]});
+                      setCurrentStep(1);
+                      setShowWelcome(false);
+                    }}
+                    className="group flex flex-col items-center p-6 sm:p-8 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                  >
+                    <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                      <FileText className="w-7 h-7" />
+                    </div>
+                    <span className="text-lg font-bold mb-1">Iniciar Nuevo Estudio</span>
+                    <span className="text-blue-200 text-sm text-center">Comienza un formulario desde cero</span>
+                  </button>
+
+                  {/* Botón Cargar Progreso */}
+                  <button
+                    onClick={() => { setLoadError(''); setShowLoadModal(true); }}
+                    className="group flex flex-col items-center p-6 sm:p-8 bg-white border-2 border-blue-200 hover:border-blue-400 text-blue-700 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                  >
+                    <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                      <FolderOpen className="w-7 h-7 text-blue-600" />
+                    </div>
+                    <span className="text-lg font-bold mb-1">Cargar Progreso</span>
+                    <span className="text-blue-400 text-sm text-center">Continúa con un archivo guardado</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Info adicional */}
+              <div className="mt-8 flex items-start gap-3 bg-gray-50 rounded-lg p-4">
+                <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 shrink-0" />
+                <p className="text-sm text-gray-500">
+                  Tus datos son privados. Solo existen en tu navegador y en el archivo que guardes.
+                  El servidor no almacena información.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Modal de carga */}
+        {showLoadModal && LoadModal()}
+        {modal && CustomModal()}
+      </div>
+    );
+  }
+
+  // --- RENDER PRINCIPAL (FORMULARIO) ---
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
@@ -836,7 +1116,12 @@ export default function App() {
             <img src={nexpleaLogo} alt="Nexplea" className="h-10 object-contain" />
             <h1 className="text-2xl font-bold text-white flex items-center"><FileText className="mr-2" /> Generador ESE</h1>
           </div>
-          <div className="text-blue-100 text-sm">Paso {currentStep} de {totalSteps}</div>
+          <div className="flex items-center gap-3">
+            <span className="text-blue-100 text-sm">Paso {currentStep} de {totalSteps}</span>
+            <button onClick={goHome} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-blue-100 hover:text-white hover:bg-blue-700/50 transition-colors" title="Volver al inicio">
+              <Home className="w-4 h-4" /> Inicio
+            </button>
+          </div>
         </div>
 
         {/* BARRA DE PROGRESO */}
@@ -893,6 +1178,10 @@ export default function App() {
           <Save className="w-6 h-6" />
         </button>
       </div>
+
+      {/* Modal de carga (disponible también desde el formulario) */}
+      {showLoadModal && LoadModal()}
+      {modal && CustomModal()}
     </div>
   );
 }
