@@ -1118,7 +1118,7 @@ export default function App() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-blue-100 text-sm">Paso {currentStep} de {totalSteps}</span>
-            <button onClick={goHome} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-blue-100 hover:text-white hover:bg-blue-700/50 transition-colors" title="Volver al inicio">
+            <button onClick={goHome} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-white text-blue-800 border border-blue-200 hover:bg-blue-50 hover:text-blue-900 shadow-sm transition-colors" title="Volver al inicio">
               <Home className="w-4 h-4" /> Inicio
             </button>
           </div>
