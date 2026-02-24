@@ -699,8 +699,8 @@
           <% (data.ingresos || []).forEach(function(ing) { %>
           <tr>
             <td class="text-left"><%= ing.nombre || '' %></td>
-            <td>$<%= ing.sueldo || '0' %></td>
-            <td>$<%= ing.aportacion || '0' %></td>
+            <td><%= ing.sueldo || '' %></td>
+            <td><%= ing.aportacion || '' %></td>
           </tr>
           <% }); %>
         </tbody>
@@ -778,7 +778,23 @@
       <% }); %>
     </p>
 
-    <p class="info-line"><strong>Distribución:</strong> <%= data.distribucion || '' %></p>
+    <p class="info-line"><strong>Distribución:</strong>
+      <% var dist = data.distribucion || {}; %>
+      <% var distItems = [
+        { key: 'recamaras', label: 'Recámaras' },
+        { key: 'banos', label: 'Baños' },
+        { key: 'cocina', label: 'Cocina' },
+        { key: 'comedor', label: 'Comedor' },
+        { key: 'sala', label: 'Sala' },
+        { key: 'patioServicio', label: 'Patio de Servicio' },
+        { key: 'cuartoServicio', label: 'Cuarto de Servicio' },
+        { key: 'jardin', label: 'Jardín' },
+        { key: 'garaje', label: 'Garaje' }
+      ]; %>
+      <% distItems.forEach(function(item) { %>
+        <%= item.label %> (<%= dist[item.key] || '0' %>)
+      <% }); %>
+    </p>
 
     <p class="radio-group"><strong>Mobiliario:</strong>
       <% ['Lujoso','Buena calidad','Calidad media','Modesto'].forEach(function(opt) { %>

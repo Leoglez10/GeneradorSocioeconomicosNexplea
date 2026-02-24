@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, ChevronLeft, Plus, Trash2, Printer, FileText, CheckCircle, RotateCcw, Upload } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Plus, Trash2, Printer, FileText, CheckCircle, RotateCcw, Upload, Download, Save } from 'lucide-react';
 
 // --- ESTADO INICIAL ---
 const initialData = {
@@ -66,7 +66,8 @@ const initialData = {
   bienes: [{ id: 1, propietario: '', tipo: '', adeudo: '' }],
 
   // 9. Vivienda
-  tiempoResidencia: '', nivelZona: '', tipoVivienda: '', distribucion: '',
+  tiempoResidencia: '', nivelZona: '', tipoVivienda: '',
+  distribucion: { recamaras: '0', banos: '0', cocina: '0', comedor: '0', sala: '0', patioServicio: '0', cuartoServicio: '0', jardin: '0', garaje: '0' },
   mobiliarioCalidad: '', mobiliarioCantidad: '', tamanoVivienda: '', condicionesVivienda: '',
 
   // 10. Referencias Personales
@@ -97,6 +98,7 @@ export default function App() {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState(initialData);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [showProgressMenu, setShowProgressMenu] = useState(false);
   const totalSteps = 10;
 
   // --- HANDLERS ---
@@ -123,6 +125,13 @@ export default function App() {
     setFormData(prev => ({
       ...prev,
       [campo]: { ...prev[campo], [field]: value }
+    }));
+  };
+
+  const handleDistribucionChange = (key, value) => {
+    setFormData(prev => ({
+      ...prev,
+      distribucion: { ...prev.distribucion, [key]: value }
     }));
   };
 
@@ -166,6 +175,46 @@ export default function App() {
       setFormData(initialData);
       setCurrentStep(1);
     }
+  };
+
+  const exportProgress = () => {
+    const dataStr = JSON.stringify(formData, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ESE_Progreso_${(formData.nombre || 'Candidato').replace(/\s+/g, '_')}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const importProgress = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const imported = JSON.parse(ev.target.result);
+          if (imported && typeof imported === 'object' && !Array.isArray(imported)) {
+            setFormData({ ...initialData, ...imported });
+            setCurrentStep(1);
+            alert('Progreso cargado correctamente.');
+          } else {
+            alert('El archivo no tiene un formato válido.');
+          }
+        } catch {
+          alert('Error al leer el archivo. Asegúrate de que sea un archivo JSON válido.');
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
   };
 
   const generatePDF = () => {
@@ -333,8 +382,8 @@ export default function App() {
           {formData.ingresos.map(ing => (
             <div key={ing.id} className="flex space-x-2 mb-2 relative pr-6">
               <input type="text" placeholder="Nombre" value={ing.nombre} onChange={(e) => handleDynamicChange('ingresos', ing.id, 'nombre', e.target.value)} className="w-1/3 rounded-md border-gray-300 shadow-sm p-1 border text-sm" />
-              <input type="number" placeholder="Sueldo" value={ing.sueldo} onChange={(e) => handleDynamicChange('ingresos', ing.id, 'sueldo', e.target.value)} className="w-1/3 rounded-md border-gray-300 shadow-sm p-1 border text-sm" />
-              <input type="number" placeholder="Aportación" value={ing.aportacion} onChange={(e) => handleDynamicChange('ingresos', ing.id, 'aportacion', e.target.value)} className="w-1/3 rounded-md border-gray-300 shadow-sm p-1 border text-sm" />
+              <input type="text" placeholder="Sueldo" value={ing.sueldo} onChange={(e) => handleDynamicChange('ingresos', ing.id, 'sueldo', e.target.value)} className="w-1/3 rounded-md border-gray-300 shadow-sm p-1 border text-sm" />
+              <input type="text" placeholder="Aportación" value={ing.aportacion} onChange={(e) => handleDynamicChange('ingresos', ing.id, 'aportacion', e.target.value)} className="w-1/3 rounded-md border-gray-300 shadow-sm p-1 border text-sm" />
               <button onClick={() => removeDynamicItem('ingresos', ing.id)} className="absolute right-0 top-1 text-red-500"><Trash2 className="w-4 h-4" /></button>
             </div>
           ))}
@@ -379,7 +428,27 @@ export default function App() {
         <div><label className="block text-sm font-medium text-gray-700">Tiempo de residencia actual</label><input type="text" name="tiempoResidencia" value={formData.tiempoResidencia} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" /></div>
         <div><label className="block text-sm font-medium text-gray-700">Nivel de la zona</label><select name="nivelZona" value={formData.nivelZona} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"><option value="">Seleccione...</option><option value="Residencial">Residencial</option><option value="Media alta">Media alta</option><option value="Media">Media</option><option value="Media baja">Media baja</option><option value="Proletaria">Proletaria</option></select></div>
         <div><label className="block text-sm font-medium text-gray-700">Tipo de vivienda</label><select name="tipoVivienda" value={formData.tipoVivienda} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"><option value="">Seleccione...</option><option value="Casa sola">Casa sola</option><option value="Dúplex">Dúplex</option><option value="Depto.">Depto.</option><option value="C. Huéspedes">C. Huéspedes</option><option value="Vecindad">Vecindad</option></select></div>
-        <div><label className="block text-sm font-medium text-gray-700">Distribución</label><input type="text" name="distribucion" placeholder="Recámaras, Baños, Cocina..." value={formData.distribucion} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" /></div>
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Distribución</label>
+          <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+            {[
+              { key: 'recamaras', label: 'Recámaras' },
+              { key: 'banos', label: 'Baños' },
+              { key: 'cocina', label: 'Cocina' },
+              { key: 'comedor', label: 'Comedor' },
+              { key: 'sala', label: 'Sala' },
+              { key: 'patioServicio', label: 'Patio de Servicio' },
+              { key: 'cuartoServicio', label: 'Cuarto de Servicio' },
+              { key: 'jardin', label: 'Jardín' },
+              { key: 'garaje', label: 'Garaje' },
+            ].map(item => (
+              <div key={item.key} className="flex flex-col items-center">
+                <label className="text-xs text-gray-600 mb-1 text-center">{item.label}</label>
+                <input type="text" value={formData.distribucion[item.key]} onChange={(e) => handleDistribucionChange(item.key, e.target.value)} className="w-16 text-center rounded-md border-gray-300 shadow-sm p-1 border text-sm" />
+              </div>
+            ))}
+          </div>
+        </div>
         <div><label className="block text-sm font-medium text-gray-700">Mobiliario (Calidad)</label><select name="mobiliarioCalidad" value={formData.mobiliarioCalidad} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"><option value="">Seleccione...</option><option value="Lujoso">Lujoso</option><option value="Buena calidad">Buena calidad</option><option value="Calidad media">Calidad media</option><option value="Modesto">Modesto</option></select></div>
         <div><label className="block text-sm font-medium text-gray-700">Mobiliario (Cantidad)</label><select name="mobiliarioCantidad" value={formData.mobiliarioCantidad} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"><option value="">Seleccione...</option><option value="Holgado">Holgado</option><option value="Completo">Completo</option><option value="Incompleto">Incompleto</option><option value="Deficiente">Deficiente</option></select></div>
         <div><label className="block text-sm font-medium text-gray-700">La vivienda es</label><select name="tamanoVivienda" value={formData.tamanoVivienda} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"><option value="">Seleccione...</option><option value="Amplia">Amplia</option><option value="Suficiente">Suficiente</option><option value="Insuficiente">Insuficiente</option><option value="Precaria">Precaria</option></select></div>
@@ -863,7 +932,17 @@ export default function App() {
           <p className="border-b border-black"><strong>Tiempo de residencia actual:</strong> {formData.tiempoResidencia}</p>
           <p><strong>Nivel de la zona:</strong> ( {formData.nivelZona === 'Residencial' ? 'X' : ' '} ) Residencial ( {formData.nivelZona === 'Media alta' ? 'X' : ' '} ) Media alta ( {formData.nivelZona === 'Media' ? 'X' : ' '} ) Media ( {formData.nivelZona === 'Media baja' ? 'X' : ' '} ) Media baja ( {formData.nivelZona === 'Proletaria' ? 'X' : ' '} ) Proletaria</p>
           <p><strong>Tipo de vivienda:</strong> ( {formData.tipoVivienda === 'Casa sola' ? 'X' : ' '} ) Casa sola ( {formData.tipoVivienda === 'Dúplex' ? 'X' : ' '} ) Dúplex ( {formData.tipoVivienda === 'Depto.' ? 'X' : ' '} ) Depto. ( {formData.tipoVivienda === 'C. Huéspedes' ? 'X' : ' '} ) C. Huéspedes ( {formData.tipoVivienda === 'Vecindad' ? 'X' : ' '} ) Vecindad</p>
-          <p className="border-b border-black"><strong>Distribución:</strong> {formData.distribucion}</p>
+          <p className="border-b border-black"><strong>Distribución:</strong> {[
+            { key: 'recamaras', label: 'Recámaras' },
+            { key: 'banos', label: 'Baños' },
+            { key: 'cocina', label: 'Cocina' },
+            { key: 'comedor', label: 'Comedor' },
+            { key: 'sala', label: 'Sala' },
+            { key: 'patioServicio', label: 'Patio de Servicio' },
+            { key: 'cuartoServicio', label: 'Cuarto de Servicio' },
+            { key: 'jardin', label: 'Jardín' },
+            { key: 'garaje', label: 'Garaje' },
+          ].map(item => `${item.label} (${formData.distribucion[item.key] || '0'})`).join('  ')}</p>
           <p><strong>Mobiliario:</strong> ( {formData.mobiliarioCalidad === 'Lujoso' ? 'X' : ' '} ) Lujoso ( {formData.mobiliarioCalidad === 'Buena calidad' ? 'X' : ' '} ) Buena calidad ( {formData.mobiliarioCalidad === 'Calidad media' ? 'X' : ' '} ) Calidad media ( {formData.mobiliarioCalidad === 'Modesto' ? 'X' : ' '} ) Modesto ; ( {formData.mobiliarioCantidad === 'Holgado' ? 'X' : ' '} ) Holgado ( {formData.mobiliarioCantidad === 'Completo' ? 'X' : ' '} ) Completo ( {formData.mobiliarioCantidad === 'Incompleto' ? 'X' : ' '} ) Incompleto ( {formData.mobiliarioCantidad === 'Deficiente' ? 'X' : ' '} ) Deficiente</p>
           <p><strong>La vivienda es:</strong> ( {formData.tamanoVivienda === 'Amplia' ? 'X' : ' '} ) Amplia ( {formData.tamanoVivienda === 'Suficiente' ? 'X' : ' '} ) Suficiente ( {formData.tamanoVivienda === 'Insuficiente' ? 'X' : ' '} ) Insuficiente ( {formData.tamanoVivienda === 'Precaria' ? 'X' : ' '} ) Precaria</p>
           <p><strong>Condiciones:</strong> ( {formData.condicionesVivienda === 'Limpias' ? 'X' : ' '} ) Limpias ( {formData.condicionesVivienda === 'Sucias' ? 'X' : ' '} ) Sucias ( {formData.condicionesVivienda === 'Desordenadas' ? 'X' : ' '} ) Desordenadas ( {formData.condicionesVivienda === 'Ordenadas' ? 'X' : ' '} ) Ordenadas</p>
@@ -1091,6 +1170,27 @@ export default function App() {
 
         {/* VISTA DE IMPRESIÓN */}
         <PrintView />
+      </div>
+
+      {/* BOTÓN FLOTANTE DE PROGRESO */}
+      <div className="fixed bottom-6 right-6 z-50 print:hidden">
+        {showProgressMenu && (
+          <div className="absolute bottom-16 right-0 bg-white rounded-lg shadow-2xl border border-gray-200 p-4 w-64 animate-fade-in">
+            <p className="text-sm font-semibold text-gray-800 mb-3">Progreso del formulario</p>
+            <p className="text-xs text-gray-500 mb-3">Guarda tu avance como archivo y compártelo para que otra persona lo continúe.</p>
+            <div className="space-y-2">
+              <button onClick={() => { exportProgress(); setShowProgressMenu(false); }} className="w-full flex items-center px-3 py-2 text-sm rounded-md text-green-700 bg-green-50 hover:bg-green-100 transition-colors">
+                <Download className="w-4 h-4 mr-2" /> Guardar Progreso
+              </button>
+              <button onClick={() => { importProgress(); setShowProgressMenu(false); }} className="w-full flex items-center px-3 py-2 text-sm rounded-md text-yellow-700 bg-yellow-50 hover:bg-yellow-100 transition-colors">
+                <Upload className="w-4 h-4 mr-2" /> Cargar Progreso
+              </button>
+            </div>
+          </div>
+        )}
+        <button onClick={() => setShowProgressMenu(prev => !prev)} className={`flex items-center justify-center w-14 h-14 rounded-full shadow-lg transition-all duration-200 ${showProgressMenu ? 'bg-gray-700 hover:bg-gray-800' : 'bg-green-600 hover:bg-green-700'} text-white`} title="Guardar / Cargar Progreso">
+          <Save className="w-6 h-6" />
+        </button>
       </div>
     </div>
   );

@@ -36,7 +36,7 @@ function normalizeFormData(raw) {
     'estudiosActuales', 'periodosInactivos', 'motivosInactivos',
     'religion', 'enfermedadesFamilia', 'planes', 'notasLaboralesFamiliares',
     'solucionDeficit', 'tiempoResidencia', 'nivelZona', 'tipoVivienda',
-    'distribucion', 'mobiliarioCalidad', 'mobiliarioCantidad',
+    'mobiliarioCalidad', 'mobiliarioCantidad',
     'tamanoVivienda', 'condicionesVivienda',
     'conclusionPersonal', 'conclusionLaboral', 'conclusionSocio', 'dictamen'
   ];
@@ -87,6 +87,14 @@ function normalizeFormData(raw) {
       d[key] = { ...def, ...d[key] };
     }
   });
+
+  // Distribución (objeto estructurado)
+  const distDefault = { recamaras: '0', banos: '0', cocina: '0', comedor: '0', sala: '0', patioServicio: '0', cuartoServicio: '0', jardin: '0', garaje: '0' };
+  if (!d.distribucion || typeof d.distribucion !== 'object') {
+    d.distribucion = { ...distDefault };
+  } else {
+    d.distribucion = { ...distDefault, ...d.distribucion };
+  }
 
   // Arrays dinámicos
   if (!Array.isArray(d.familiares)) d.familiares = [];
