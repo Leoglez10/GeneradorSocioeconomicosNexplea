@@ -1,13 +1,13 @@
-const API_BASE_URL = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');
+﻿const API_BASE_URL = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { ChevronRight, ChevronLeft, Plus, Trash2, Printer, FileText, CheckCircle, RotateCcw, Upload, ImagePlus, FilePlus2, Download, Save, FileUp, X, ArrowRight, FolderOpen, Home, AlertTriangle, Info, XCircle } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Plus, Trash2, Printer, FileText, CheckCircle, RotateCcw, Upload, ImagePlus, FilePlus2, Download, Save, FileUp, X, ArrowRight, ArrowUp, ArrowDown, FolderOpen, Home, AlertTriangle, Info, XCircle, BookOpen } from 'lucide-react';
 import nexpleaLogo from './assets/nexplea2.png';
 
 // --- ESTADO INICIAL ---
 const initialData = {
   // 1. Datos Generales
   fecha: new Date().toISOString().split('T')[0],
-  puesto: '', nombre: '', lugarNacimiento: '', fechaNacimiento: '', edad: '', sexo: '', estadoCivil: '',
+  puesto: '', empresa: '', nombre: '', lugarNacimiento: '', fechaNacimiento: '', edad: '', sexo: '', estadoCivil: '',
   calle: '', colonia: '', municipio: '', cp: '', estado: '',
   entreCalles: '', gradoEstudios: '', telefonos: '',
   
@@ -70,13 +70,13 @@ const initialData = {
   // 9. Vivienda
   tiempoResidencia: '', nivelZona: '', tipoVivienda: '',
   distribucion: { recamaras: '0', banos: '0', cocina: '0', comedor: '0', sala: '0', patioServicio: '0', cuartoServicio: '0', jardin: '0', garaje: '0' },
-  mobiliarioCalidad: '', mobiliarioCantidad: '', tamanoVivienda: '', condicionesVivienda: '',
+  mobiliarioCalidad: '', mobiliarioCantidad: [], tamanoVivienda: '', condicionesVivienda: [],
 
   // 10. Referencias Personales
   referencias: [{ id: 1, nombre: '', tiempo: '', telefono: '', comentarios: '' }],
 
   // 11. Referencias Vecinales
-  referenciasVecinales: [{ id: 1, nombre: '', domicilio: '', conceptoAspirante: '', conceptoFamilia: '', estadoCivilHijos: '', sabeDondeTrabaja: '', notas: '' }],
+  referenciasVecinales: [{ id: 1, nombre: '', telefono: '', domicilio: '', conceptoAspirante: '', conceptoFamilia: '', estadoCivilVecinal: '', tieneHijos: '', sabeDondeTrabaja: '', notas: '' }],
 
   // 12. Laboral (Dinámico)
   empleos: [{ 
@@ -94,14 +94,24 @@ const initialData = {
   // 13. Conclusión y Fotos
   conclusionPersonal: '', conclusionLaboral: '', conclusionSocio: '', dictamen: '',
   fotos: { candidato: '', fachada: '', interior: '' },
+  fotosNotas: { candidato: { mostrar: false, texto: '' }, fachada: { mostrar: false, texto: '' }, interior: { mostrar: false, texto: '' } },
 
   // 14. Extras (fotos y documentos adicionales)
   fotosExtras: [],
   documentosExtras: [],
-  marcaDeAguaEnExtras: true
+  marcaDeAguaEnExtras: true,
+  incluirPortada: true,
+  pageFormat: 'Letter'
 };
 
 export default function App() {
+  const normalizeArray = useCallback((value) => {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '') return [value];
+    return [];
+  }, []);
+  const normalizeMobiliarioCantidad = normalizeArray;
+
   // Restaurar datos de localStorage al iniciar
   const [currentStep, setCurrentStep] = useState(() => {
     try { const s = localStorage.getItem('ese_step'); return s ? Number(s) : 1; } catch { return 1; }
@@ -109,7 +119,15 @@ export default function App() {
   const [formData, setFormData] = useState(() => {
     try {
       const saved = localStorage.getItem('ese_formData');
-      if (saved) { const parsed = JSON.parse(saved); return { ...initialData, ...parsed }; }
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          ...initialData,
+          ...parsed,
+          mobiliarioCantidad: normalizeArray(parsed.mobiliarioCantidad),
+          condicionesVivienda: normalizeArray(parsed.condicionesVivienda)
+        };
+      }
     } catch {}
     return initialData;
   });
@@ -137,6 +155,16 @@ export default function App() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCheckboxToggle = (field, value) => {
+    setFormData(prev => {
+      const current = normalizeArray(prev[field]);
+      const next = current.includes(value)
+        ? current.filter(v => v !== value)
+        : [...current, value];
+      return { ...prev, [field]: next };
+    });
   };
 
   const handleDocChange = (docName, field, value) => {
@@ -200,6 +228,26 @@ export default function App() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleFotoNotaToggle = (tipo) => {
+    setFormData(prev => ({
+      ...prev,
+      fotosNotas: {
+        ...prev.fotosNotas,
+        [tipo]: { ...prev.fotosNotas?.[tipo], mostrar: !prev.fotosNotas?.[tipo]?.mostrar }
+      }
+    }));
+  };
+
+  const handleFotoNotaTexto = (tipo, valor) => {
+    setFormData(prev => ({
+      ...prev,
+      fotosNotas: {
+        ...prev.fotosNotas,
+        [tipo]: { ...prev.fotosNotas?.[tipo], texto: valor }
+      }
+    }));
   };
 
   // --- EXTRAS HANDLERS ---
@@ -267,6 +315,27 @@ export default function App() {
       }));
     };
     reader.readAsDataURL(file);
+  };
+
+  // --- REORDENAR EXTRAS ---
+  const moveFotoExtra = (index, direction) => {
+    setFormData(prev => {
+      const arr = [...prev.fotosExtras];
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= arr.length) return prev;
+      [arr[index], arr[newIndex]] = [arr[newIndex], arr[index]];
+      return { ...prev, fotosExtras: arr };
+    });
+  };
+
+  const moveDocExtra = (index, direction) => {
+    setFormData(prev => {
+      const arr = [...prev.documentosExtras];
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= arr.length) return prev;
+      [arr[index], arr[newIndex]] = [arr[newIndex], arr[index]];
+      return { ...prev, documentosExtras: arr };
+    });
   };
 
   const resetForm = () => {
@@ -635,9 +704,59 @@ export default function App() {
           </div>
         </div>
         <div><label className="block text-sm font-medium text-gray-700">Mobiliario (Calidad)</label><select name="mobiliarioCalidad" value={formData.mobiliarioCalidad} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"><option value="">Seleccione...</option><option value="Lujoso">Lujoso</option><option value="Buena calidad">Buena calidad</option><option value="Calidad media">Calidad media</option><option value="Modesto">Modesto</option></select></div>
-        <div><label className="block text-sm font-medium text-gray-700">Mobiliario (Cantidad)</label><select name="mobiliarioCantidad" value={formData.mobiliarioCantidad} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"><option value="">Seleccione...</option><option value="Holgado">Holgado</option><option value="Completo">Completo</option><option value="Incompleto">Incompleto</option><option value="Deficiente">Deficiente</option></select></div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Mobiliario (Cantidad)</label>
+          <div className="flex flex-wrap gap-3 mt-1">
+            {['Holgado', 'Completo', 'Incompleto', 'Deficiente'].map(opt => {
+              const checked = normalizeMobiliarioCantidad(formData.mobiliarioCantidad).includes(opt);
+              return (
+                <label
+                  key={opt}
+                  className={`flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg border text-sm transition-colors ${
+                    checked
+                      ? 'bg-blue-100 border-blue-500 text-blue-800 font-medium'
+                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => handleCheckboxToggle('mobiliarioCantidad', opt)}
+                    className="accent-blue-600 w-4 h-4"
+                  />
+                  {opt}
+                </label>
+              );
+            })}
+          </div>
+        </div>
         <div><label className="block text-sm font-medium text-gray-700">La vivienda es</label><select name="tamanoVivienda" value={formData.tamanoVivienda} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"><option value="">Seleccione...</option><option value="Amplia">Amplia</option><option value="Suficiente">Suficiente</option><option value="Insuficiente">Insuficiente</option><option value="Precaria">Precaria</option></select></div>
-        <div><label className="block text-sm font-medium text-gray-700">Condiciones</label><select name="condicionesVivienda" value={formData.condicionesVivienda} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"><option value="">Seleccione...</option><option value="Limpias">Limpias</option><option value="Sucias">Sucias</option><option value="Desordenadas">Desordenadas</option><option value="Ordenadas">Ordenadas</option></select></div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Condiciones</label>
+          <div className="flex flex-wrap gap-3 mt-1">
+            {['Limpias', 'Sucias', 'Desordenadas', 'Ordenadas'].map(opt => {
+              const checked = normalizeArray(formData.condicionesVivienda).includes(opt);
+              return (
+                <label
+                  key={opt}
+                  className={`flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg border text-sm transition-colors ${
+                    checked
+                      ? 'bg-blue-100 border-blue-500 text-blue-800 font-medium'
+                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => handleCheckboxToggle('condicionesVivienda', opt)}
+                    className="accent-blue-600 w-4 h-4"
+                  />
+                  {opt}
+                </label>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -662,17 +781,19 @@ export default function App() {
 
       <div className="flex justify-between items-center border-b pb-2 mt-8">
         <h2 className="text-2xl font-bold text-blue-800">XI. Referencias Vecinales</h2>
-        <button onClick={() => addDynamicItem('referenciasVecinales', { nombre: '', domicilio: '', conceptoAspirante: '', conceptoFamilia: '', estadoCivilHijos: '', sabeDondeTrabaja: '', notas: '' })} className="flex items-center text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"><Plus className="w-4 h-4 mr-1" /> Agregar Vecino</button>
+        <button onClick={() => addDynamicItem('referenciasVecinales', { nombre: '', telefono: '', domicilio: '', conceptoAspirante: '', conceptoFamilia: '', estadoCivilVecinal: '', tieneHijos: '', sabeDondeTrabaja: '', notas: '' })} className="flex items-center text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"><Plus className="w-4 h-4 mr-1" /> Agregar Vecino</button>
       </div>
       <div className="space-y-4">
         {formData.referenciasVecinales.map((vec) => (
           <div key={vec.id} className="grid grid-cols-1 md:grid-cols-2 gap-2 items-end p-4 border rounded-md bg-gray-50 relative">
             <div className="absolute top-2 right-2"><button onClick={() => removeDynamicItem('referenciasVecinales', vec.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button></div>
             <div><label className="block text-xs font-medium text-gray-700">Nombre</label><input type="text" value={vec.nombre} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'nombre', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
+            <div><label className="block text-xs font-medium text-gray-700">Teléfono</label><input type="text" value={vec.telefono || ''} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'telefono', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
             <div><label className="block text-xs font-medium text-gray-700">Domicilio</label><input type="text" value={vec.domicilio} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'domicilio', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
             <div><label className="block text-xs font-medium text-gray-700">¿Cómo conceptúa al aspirante?</label><input type="text" value={vec.conceptoAspirante} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'conceptoAspirante', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
             <div><label className="block text-xs font-medium text-gray-700">¿Cómo conceptúa a la familia?</label><input type="text" value={vec.conceptoFamilia} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'conceptoFamilia', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
-            <div><label className="block text-xs font-medium text-gray-700">Estado civil / ¿Tiene hijos?</label><input type="text" value={vec.estadoCivilHijos} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'estadoCivilHijos', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
+            <div><label className="block text-xs font-medium text-gray-700">Estado civil del aspirante</label><input type="text" value={vec.estadoCivilVecinal || vec.estadoCivilHijos || ''} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'estadoCivilVecinal', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
+            <div><label className="block text-xs font-medium text-gray-700">¿Tiene hijos?</label><input type="text" value={vec.tieneHijos || ''} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'tieneHijos', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
             <div><label className="block text-xs font-medium text-gray-700">¿Sabe en donde trabaja?</label><input type="text" value={vec.sabeDondeTrabaja} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'sabeDondeTrabaja', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
             <div className="md:col-span-2"><label className="block text-xs font-medium text-gray-700">Notas</label><textarea value={vec.notas} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'notas', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" rows="2"></textarea></div>
           </div>
@@ -797,6 +918,24 @@ export default function App() {
                 <input type="file" accept="image/*" className="hidden" onChange={(e) => handlePhotoUpload(e, tipo)} />
               </label>
               {formData.fotos[tipo] && <img src={formData.fotos[tipo]} alt={tipo} className="mt-2 h-24 object-cover rounded" />}
+              <label className="flex items-center gap-2 mt-3 cursor-pointer text-xs text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={formData.fotosNotas?.[tipo]?.mostrar || false}
+                  onChange={() => handleFotoNotaToggle(tipo)}
+                  className="accent-blue-600 w-3.5 h-3.5"
+                />
+                Añadir link / nota
+              </label>
+              {formData.fotosNotas?.[tipo]?.mostrar && (
+                <input
+                  type="text"
+                  placeholder="Ej: https://maps.google.com/..."
+                  value={formData.fotosNotas?.[tipo]?.texto || ''}
+                  onChange={(e) => handleFotoNotaTexto(tipo, e.target.value)}
+                  className="mt-1 w-full text-xs rounded-md border-gray-300 shadow-sm p-1.5 border"
+                />
+              )}
             </div>
           ))}
         </div>
@@ -823,8 +962,24 @@ export default function App() {
         <div className="space-y-4">
           {formData.fotosExtras.map((foto, index) => (
             <div key={foto.id} className="flex flex-col md:flex-row items-start gap-4 p-4 border rounded-md bg-white relative">
-              <div className="absolute top-2 right-2">
-                <button onClick={() => removeFotoExtra(foto.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+              <div className="absolute top-2 right-2 flex items-center gap-1">
+                <button
+                  onClick={() => moveFotoExtra(index, -1)}
+                  disabled={index === 0}
+                  className="text-gray-400 hover:text-yellow-700 disabled:opacity-30 disabled:cursor-not-allowed p-0.5 rounded hover:bg-yellow-100 transition-colors"
+                  title="Mover arriba"
+                >
+                  <ArrowUp className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => moveFotoExtra(index, 1)}
+                  disabled={index === formData.fotosExtras.length - 1}
+                  className="text-gray-400 hover:text-yellow-700 disabled:opacity-30 disabled:cursor-not-allowed p-0.5 rounded hover:bg-yellow-100 transition-colors"
+                  title="Mover abajo"
+                >
+                  <ArrowDown className="w-4 h-4" />
+                </button>
+                <button onClick={() => removeFotoExtra(foto.id)} className="text-red-500 hover:text-red-700 p-0.5"><Trash2 className="w-4 h-4" /></button>
               </div>
               <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50 min-w-[150px]">
                 <label className="cursor-pointer flex flex-col items-center">
@@ -870,8 +1025,24 @@ export default function App() {
         <div className="space-y-3">
           {formData.documentosExtras.map((doc, index) => (
             <div key={doc.id} className="flex items-center gap-4 p-3 border rounded-md bg-white relative">
-              <div className="absolute top-2 right-2">
-                <button onClick={() => removeDocExtra(doc.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+              <div className="absolute top-2 right-2 flex items-center gap-1">
+                <button
+                  onClick={() => moveDocExtra(index, -1)}
+                  disabled={index === 0}
+                  className="text-gray-400 hover:text-purple-700 disabled:opacity-30 disabled:cursor-not-allowed p-0.5 rounded hover:bg-purple-100 transition-colors"
+                  title="Mover arriba"
+                >
+                  <ArrowUp className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => moveDocExtra(index, 1)}
+                  disabled={index === formData.documentosExtras.length - 1}
+                  className="text-gray-400 hover:text-purple-700 disabled:opacity-30 disabled:cursor-not-allowed p-0.5 rounded hover:bg-purple-100 transition-colors"
+                  title="Mover abajo"
+                >
+                  <ArrowDown className="w-4 h-4" />
+                </button>
+                <button onClick={() => removeDocExtra(doc.id)} className="text-red-500 hover:text-red-700 p-0.5"><Trash2 className="w-4 h-4" /></button>
               </div>
               <label className="cursor-pointer flex items-center gap-2 border-2 border-dashed border-gray-300 rounded-lg px-4 py-2 bg-gray-50 hover:bg-gray-100">
                 <FilePlus2 className="w-5 h-5 text-gray-400" />
@@ -902,7 +1073,38 @@ export default function App() {
         )}
       </div>
 
-      <div className="flex flex-col sm:flex-row justify-center gap-4 mt-8">
+      <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mt-8">
+        <button
+          type="button"
+          onClick={() => setFormData(prev => ({ ...prev, incluirPortada: !prev.incluirPortada }))}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg border-2 text-sm font-medium transition-all duration-200 ${
+            formData.incluirPortada
+              ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
+              : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'
+          }`}
+        >
+          <BookOpen className={`w-4 h-4 ${formData.incluirPortada ? 'text-blue-500' : 'text-gray-400'}`} />
+          <span>Portada</span>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+            formData.incluirPortada
+              ? 'bg-blue-500 text-white'
+              : 'bg-gray-200 text-gray-500'
+          }`}>
+            {formData.incluirPortada ? 'SÍ' : 'NO'}
+          </span>
+        </button>
+        <div className="w-full sm:max-w-xs">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Tamaño de hoja del PDF</label>
+          <select
+            name="pageFormat"
+            value={formData.pageFormat || 'Letter'}
+            onChange={handleChange}
+            className="block w-full rounded-md border-gray-300 shadow-sm p-2 border"
+          >
+            <option value="Letter">Carta (Letter)</option>
+            <option value="A4">A4</option>
+          </select>
+        </div>
         <button onClick={resetForm} className="flex items-center justify-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
           <RotateCcw className="w-5 h-5 mr-2" /> Nuevo Formato
         </button>
@@ -910,6 +1112,38 @@ export default function App() {
           <Printer className="w-5 h-5 mr-2" /> {isGenerating ? 'Generando...' : 'Generar PDF Oficial'}
         </button>
       </div>
+
+      {/* --- Datos de la Portada (debajo de los botones) --- */}
+      {formData.incluirPortada && (
+        <div className="mt-6 p-5 border-2 border-blue-200 bg-blue-50/50 rounded-xl transition-all duration-300 animate-fade-in">
+          <h3 className="text-base font-semibold text-blue-800 flex items-center gap-2 mb-4">
+            <BookOpen className="w-5 h-5" />
+            Datos de la Portada
+          </h3>
+          <p className="text-xs text-gray-500 mb-4">Estos datos aparecerán en la portada del PDF generado.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Empresa solicitante</label>
+              <input type="text" name="empresa" value={formData.empresa} onChange={handleChange} placeholder="Ej. Grupo Bimbo, Femsa, etc." className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Puesto / Vacante</label>
+              <input type="text" disabled value={formData.puesto || '—'} className="mt-1 block w-full rounded-md border-gray-200 bg-gray-100 text-gray-500 p-2 border cursor-not-allowed" />
+              <p className="text-xs text-gray-400 mt-1">Se toma del campo "Puesto que solicita" (Paso 1)</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Candidato</label>
+              <input type="text" disabled value={formData.nombre || '—'} className="mt-1 block w-full rounded-md border-gray-200 bg-gray-100 text-gray-500 p-2 border cursor-not-allowed" />
+              <p className="text-xs text-gray-400 mt-1">Se toma del campo "Nombre del aspirante" (Paso 1)</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Fecha del estudio</label>
+              <input type="text" disabled value={formData.fecha || '—'} className="mt-1 block w-full rounded-md border-gray-200 bg-gray-100 text-gray-500 p-2 border cursor-not-allowed" />
+              <p className="text-xs text-gray-400 mt-1">Se toma del campo "Fecha" (Paso 1)</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 

@@ -68,13 +68,13 @@ const initialData = {
   // 9. Vivienda
   tiempoResidencia: '', nivelZona: '', tipoVivienda: '',
   distribucion: { recamaras: '0', banos: '0', cocina: '0', comedor: '0', sala: '0', patioServicio: '0', cuartoServicio: '0', jardin: '0', garaje: '0' },
-  mobiliarioCalidad: '', mobiliarioCantidad: '', tamanoVivienda: '', condicionesVivienda: '',
+  mobiliarioCalidad: '', mobiliarioCantidad: [], tamanoVivienda: '', condicionesVivienda: [],
 
   // 10. Referencias Personales
   referencias: [{ id: 1, nombre: '', tiempo: '', telefono: '', comentarios: '' }],
 
   // 11. Referencias Vecinales
-  referenciasVecinales: [{ id: 1, nombre: '', domicilio: '', conceptoAspirante: '', conceptoFamilia: '', estadoCivilHijos: '', sabeDondeTrabaja: '', notas: '' }],
+  referenciasVecinales: [{ id: 1, nombre: '', telefono: '', domicilio: '', conceptoAspirante: '', conceptoFamilia: '', estadoCivilVecinal: '', tieneHijos: '', sabeDondeTrabaja: '', notas: '' }],
 
   // 12. Laboral (Dinámico)
   empleos: [{ 
@@ -91,10 +91,18 @@ const initialData = {
 
   // 13. Conclusión y Fotos
   conclusionPersonal: '', conclusionLaboral: '', conclusionSocio: '', dictamen: '',
-  fotos: { candidato: '', fachada: '', interior: '' }
+  fotos: { candidato: '', fachada: '', interior: '' },
+  fotosNotas: { candidato: { mostrar: false, texto: '' }, fachada: { mostrar: false, texto: '' }, interior: { mostrar: false, texto: '' } }
 };
 
 export default function App() {
+  const normalizeArray = (value) => {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '') return [value];
+    return [];
+  };
+  const normalizeMobiliarioCantidad = normalizeArray;
+
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState(initialData);
   const [isPrinting, setIsPrinting] = useState(false);
@@ -105,6 +113,16 @@ export default function App() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCheckboxToggle = (field, value) => {
+    setFormData(prev => {
+      const current = normalizeArray(prev[field]);
+      const next = current.includes(value)
+        ? current.filter(v => v !== value)
+        : [...current, value];
+      return { ...prev, [field]: next };
+    });
   };
 
   const handleDocChange = (docName, field, value) => {
@@ -450,9 +468,59 @@ export default function App() {
           </div>
         </div>
         <div><label className="block text-sm font-medium text-gray-700">Mobiliario (Calidad)</label><select name="mobiliarioCalidad" value={formData.mobiliarioCalidad} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"><option value="">Seleccione...</option><option value="Lujoso">Lujoso</option><option value="Buena calidad">Buena calidad</option><option value="Calidad media">Calidad media</option><option value="Modesto">Modesto</option></select></div>
-        <div><label className="block text-sm font-medium text-gray-700">Mobiliario (Cantidad)</label><select name="mobiliarioCantidad" value={formData.mobiliarioCantidad} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"><option value="">Seleccione...</option><option value="Holgado">Holgado</option><option value="Completo">Completo</option><option value="Incompleto">Incompleto</option><option value="Deficiente">Deficiente</option></select></div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Mobiliario (Cantidad)</label>
+          <div className="flex flex-wrap gap-3 mt-1">
+            {['Holgado', 'Completo', 'Incompleto', 'Deficiente'].map(opt => {
+              const checked = normalizeMobiliarioCantidad(formData.mobiliarioCantidad).includes(opt);
+              return (
+                <label
+                  key={opt}
+                  className={`flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg border text-sm transition-colors ${
+                    checked
+                      ? 'bg-blue-100 border-blue-500 text-blue-800 font-medium'
+                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => handleCheckboxToggle('mobiliarioCantidad', opt)}
+                    className="accent-blue-600 w-4 h-4"
+                  />
+                  {opt}
+                </label>
+              );
+            })}
+          </div>
+        </div>
         <div><label className="block text-sm font-medium text-gray-700">La vivienda es</label><select name="tamanoVivienda" value={formData.tamanoVivienda} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"><option value="">Seleccione...</option><option value="Amplia">Amplia</option><option value="Suficiente">Suficiente</option><option value="Insuficiente">Insuficiente</option><option value="Precaria">Precaria</option></select></div>
-        <div><label className="block text-sm font-medium text-gray-700">Condiciones</label><select name="condicionesVivienda" value={formData.condicionesVivienda} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"><option value="">Seleccione...</option><option value="Limpias">Limpias</option><option value="Sucias">Sucias</option><option value="Desordenadas">Desordenadas</option><option value="Ordenadas">Ordenadas</option></select></div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Condiciones</label>
+          <div className="flex flex-wrap gap-3 mt-1">
+            {['Limpias', 'Sucias', 'Desordenadas', 'Ordenadas'].map(opt => {
+              const checked = normalizeArray(formData.condicionesVivienda).includes(opt);
+              return (
+                <label
+                  key={opt}
+                  className={`flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg border text-sm transition-colors ${
+                    checked
+                      ? 'bg-blue-100 border-blue-500 text-blue-800 font-medium'
+                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => handleCheckboxToggle('condicionesVivienda', opt)}
+                    className="accent-blue-600 w-4 h-4"
+                  />
+                  {opt}
+                </label>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -477,17 +545,19 @@ export default function App() {
 
       <div className="flex justify-between items-center border-b pb-2 mt-8">
         <h2 className="text-2xl font-bold text-blue-800">XI. Referencias Vecinales</h2>
-        <button onClick={() => addDynamicItem('referenciasVecinales', { nombre: '', domicilio: '', conceptoAspirante: '', conceptoFamilia: '', estadoCivilHijos: '', sabeDondeTrabaja: '', notas: '' })} className="flex items-center text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"><Plus className="w-4 h-4 mr-1" /> Agregar Vecino</button>
+        <button onClick={() => addDynamicItem('referenciasVecinales', { nombre: '', telefono: '', domicilio: '', conceptoAspirante: '', conceptoFamilia: '', estadoCivilVecinal: '', tieneHijos: '', sabeDondeTrabaja: '', notas: '' })} className="flex items-center text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"><Plus className="w-4 h-4 mr-1" /> Agregar Vecino</button>
       </div>
       <div className="space-y-4">
         {formData.referenciasVecinales.map((vec) => (
           <div key={vec.id} className="grid grid-cols-1 md:grid-cols-2 gap-2 items-end p-4 border rounded-md bg-gray-50 relative">
             <div className="absolute top-2 right-2"><button onClick={() => removeDynamicItem('referenciasVecinales', vec.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button></div>
             <div><label className="block text-xs font-medium text-gray-700">Nombre</label><input type="text" value={vec.nombre} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'nombre', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
+            <div><label className="block text-xs font-medium text-gray-700">Teléfono</label><input type="text" value={vec.telefono || ''} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'telefono', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
             <div><label className="block text-xs font-medium text-gray-700">Domicilio</label><input type="text" value={vec.domicilio} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'domicilio', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
             <div><label className="block text-xs font-medium text-gray-700">¿Cómo conceptúa al aspirante?</label><input type="text" value={vec.conceptoAspirante} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'conceptoAspirante', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
             <div><label className="block text-xs font-medium text-gray-700">¿Cómo conceptúa a la familia?</label><input type="text" value={vec.conceptoFamilia} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'conceptoFamilia', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
-            <div><label className="block text-xs font-medium text-gray-700">Estado civil / ¿Tiene hijos?</label><input type="text" value={vec.estadoCivilHijos} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'estadoCivilHijos', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
+            <div><label className="block text-xs font-medium text-gray-700">Estado civil del aspirante</label><input type="text" value={vec.estadoCivilVecinal || vec.estadoCivilHijos || ''} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'estadoCivilVecinal', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
+            <div><label className="block text-xs font-medium text-gray-700">¿Tiene hijos?</label><input type="text" value={vec.tieneHijos || ''} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'tieneHijos', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
             <div><label className="block text-xs font-medium text-gray-700">¿Sabe en donde trabaja?</label><input type="text" value={vec.sabeDondeTrabaja} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'sabeDondeTrabaja', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
             <div className="md:col-span-2"><label className="block text-xs font-medium text-gray-700">Notas</label><textarea value={vec.notas} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'notas', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" rows="2"></textarea></div>
           </div>
@@ -612,6 +682,24 @@ export default function App() {
                 <input type="file" accept="image/*" className="hidden" onChange={(e) => handlePhotoUpload(e, tipo)} />
               </label>
               {formData.fotos[tipo] && <img src={formData.fotos[tipo]} alt={tipo} className="mt-2 h-24 object-cover rounded" />}
+              <label className="flex items-center gap-2 mt-3 cursor-pointer text-xs text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={formData.fotosNotas?.[tipo]?.mostrar || false}
+                  onChange={() => setFormData(prev => ({ ...prev, fotosNotas: { ...prev.fotosNotas, [tipo]: { ...prev.fotosNotas?.[tipo], mostrar: !prev.fotosNotas?.[tipo]?.mostrar } } }))}
+                  className="accent-blue-600 w-3.5 h-3.5"
+                />
+                Añadir link / nota
+              </label>
+              {formData.fotosNotas?.[tipo]?.mostrar && (
+                <input
+                  type="text"
+                  placeholder="Ej: https://maps.google.com/..."
+                  value={formData.fotosNotas?.[tipo]?.texto || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, fotosNotas: { ...prev.fotosNotas, [tipo]: { ...prev.fotosNotas?.[tipo], texto: e.target.value } } }))}
+                  className="mt-1 w-full text-xs rounded-md border-gray-300 shadow-sm p-1.5 border"
+                />
+              )}
             </div>
           ))}
         </div>
@@ -943,9 +1031,9 @@ export default function App() {
             { key: 'jardin', label: 'Jardín' },
             { key: 'garaje', label: 'Garaje' },
           ].map(item => `${item.label} (${formData.distribucion[item.key] || '0'})`).join('  ')}</p>
-          <p><strong>Mobiliario:</strong> ( {formData.mobiliarioCalidad === 'Lujoso' ? 'X' : ' '} ) Lujoso ( {formData.mobiliarioCalidad === 'Buena calidad' ? 'X' : ' '} ) Buena calidad ( {formData.mobiliarioCalidad === 'Calidad media' ? 'X' : ' '} ) Calidad media ( {formData.mobiliarioCalidad === 'Modesto' ? 'X' : ' '} ) Modesto ; ( {formData.mobiliarioCantidad === 'Holgado' ? 'X' : ' '} ) Holgado ( {formData.mobiliarioCantidad === 'Completo' ? 'X' : ' '} ) Completo ( {formData.mobiliarioCantidad === 'Incompleto' ? 'X' : ' '} ) Incompleto ( {formData.mobiliarioCantidad === 'Deficiente' ? 'X' : ' '} ) Deficiente</p>
+          <p><strong>Mobiliario:</strong> ( {formData.mobiliarioCalidad === 'Lujoso' ? 'X' : ' '} ) Lujoso ( {formData.mobiliarioCalidad === 'Buena calidad' ? 'X' : ' '} ) Buena calidad ( {formData.mobiliarioCalidad === 'Calidad media' ? 'X' : ' '} ) Calidad media ( {formData.mobiliarioCalidad === 'Modesto' ? 'X' : ' '} ) Modesto ; ( {normalizeMobiliarioCantidad(formData.mobiliarioCantidad).includes('Holgado') ? 'X' : ' '} ) Holgado ( {normalizeMobiliarioCantidad(formData.mobiliarioCantidad).includes('Completo') ? 'X' : ' '} ) Completo ( {normalizeMobiliarioCantidad(formData.mobiliarioCantidad).includes('Incompleto') ? 'X' : ' '} ) Incompleto ( {normalizeMobiliarioCantidad(formData.mobiliarioCantidad).includes('Deficiente') ? 'X' : ' '} ) Deficiente</p>
           <p><strong>La vivienda es:</strong> ( {formData.tamanoVivienda === 'Amplia' ? 'X' : ' '} ) Amplia ( {formData.tamanoVivienda === 'Suficiente' ? 'X' : ' '} ) Suficiente ( {formData.tamanoVivienda === 'Insuficiente' ? 'X' : ' '} ) Insuficiente ( {formData.tamanoVivienda === 'Precaria' ? 'X' : ' '} ) Precaria</p>
-          <p><strong>Condiciones:</strong> ( {formData.condicionesVivienda === 'Limpias' ? 'X' : ' '} ) Limpias ( {formData.condicionesVivienda === 'Sucias' ? 'X' : ' '} ) Sucias ( {formData.condicionesVivienda === 'Desordenadas' ? 'X' : ' '} ) Desordenadas ( {formData.condicionesVivienda === 'Ordenadas' ? 'X' : ' '} ) Ordenadas</p>
+          <p><strong>Condiciones:</strong> ( {normalizeArray(formData.condicionesVivienda).includes('Limpias') ? 'X' : ' '} ) Limpias ( {normalizeArray(formData.condicionesVivienda).includes('Sucias') ? 'X' : ' '} ) Sucias ( {normalizeArray(formData.condicionesVivienda).includes('Desordenadas') ? 'X' : ' '} ) Desordenadas ( {normalizeArray(formData.condicionesVivienda).includes('Ordenadas') ? 'X' : ' '} ) Ordenadas</p>
         </div>
       </div>
 
@@ -968,12 +1056,14 @@ export default function App() {
           <div key={i} className="border border-black p-2 mb-4">
             <div className="grid grid-cols-2 gap-2 mb-2">
               <p className="border-b border-black"><strong>Nombre:</strong> {vec.nombre}</p>
+              <p className="border-b border-black"><strong>Tel.:</strong> {vec.telefono || ''}</p>
               <p className="border-b border-black"><strong>Domicilio:</strong> {vec.domicilio}</p>
             </div>
             <p className="border-b border-black mt-1"><strong>¿Cómo conceptúa al aspirante?:</strong> {vec.conceptoAspirante}</p>
             <p className="border-b border-black mt-1"><strong>¿Cómo conceptúa a la familia como vecinos?:</strong> {vec.conceptoFamilia}</p>
             <div className="grid grid-cols-2 gap-2 mt-1">
-              <p className="border-b border-black"><strong>Estado civil del aspirante / ¿Tiene hijos?:</strong> {vec.estadoCivilHijos}</p>
+              <p className="border-b border-black"><strong>Estado civil del aspirante:</strong> {vec.estadoCivilVecinal || vec.estadoCivilHijos || ''}</p>
+              <p className="border-b border-black"><strong>¿Tiene hijos?:</strong> {vec.tieneHijos || ''}</p>
               <p className="border-b border-black"><strong>¿Sabe en donde trabaja?:</strong> {vec.sabeDondeTrabaja}</p>
             </div>
             <p className="border-b border-black mt-1"><strong>Notas:</strong> {vec.notas}</p>
@@ -988,12 +1078,14 @@ export default function App() {
           <div key={i} className="border border-black p-2 mb-4">
             <div className="grid grid-cols-2 gap-2 mb-2">
               <p className="border-b border-black"><strong>Nombre:</strong> {vec.nombre}</p>
+              <p className="border-b border-black"><strong>Tel.:</strong> {vec.telefono || ''}</p>
               <p className="border-b border-black"><strong>Domicilio:</strong> {vec.domicilio}</p>
             </div>
             <p className="border-b border-black mt-1"><strong>¿Cómo conceptúa al aspirante?:</strong> {vec.conceptoAspirante}</p>
             <p className="border-b border-black mt-1"><strong>¿Cómo conceptúa a la familia como vecinos?:</strong> {vec.conceptoFamilia}</p>
             <div className="grid grid-cols-2 gap-2 mt-1">
-              <p className="border-b border-black"><strong>Estado civil del aspirante / ¿Tiene hijos?:</strong> {vec.estadoCivilHijos}</p>
+              <p className="border-b border-black"><strong>Estado civil del aspirante:</strong> {vec.estadoCivilVecinal || vec.estadoCivilHijos || ''}</p>
+              <p className="border-b border-black"><strong>¿Tiene hijos?:</strong> {vec.tieneHijos || ''}</p>
               <p className="border-b border-black"><strong>¿Sabe en donde trabaja?:</strong> {vec.sabeDondeTrabaja}</p>
             </div>
             <p className="border-b border-black mt-1"><strong>Notas:</strong> {vec.notas}</p>
@@ -1106,14 +1198,29 @@ export default function App() {
 
         <h2 className="font-bold bg-gray-200 p-1 border border-black mb-2">FOTOS</h2>
         <div className="grid grid-cols-3 gap-2 mb-6">
-          <div className="border border-black h-40 flex items-center justify-center overflow-hidden">
-            {formData.fotos.candidato ? <img src={formData.fotos.candidato} alt="Candidato" className="max-h-full max-w-full object-contain" /> : <span className="text-gray-400">Del Candidato</span>}
+          <div className="border border-black flex flex-col items-center justify-center overflow-hidden">
+            <div className="h-40 flex items-center justify-center w-full">
+              {formData.fotos.candidato ? <img src={formData.fotos.candidato} alt="Candidato" className="max-h-full max-w-full object-contain" /> : <span className="text-gray-400">Del Candidato</span>}
+            </div>
+            {formData.fotosNotas?.candidato?.mostrar && formData.fotosNotas.candidato.texto && (
+              <p className="text-[7px] text-blue-700 p-1 break-all w-full text-center border-t border-black">{formData.fotosNotas.candidato.texto}</p>
+            )}
           </div>
-          <div className="border border-black h-40 flex items-center justify-center overflow-hidden">
-            {formData.fotos.fachada ? <img src={formData.fotos.fachada} alt="Fachada" className="max-h-full max-w-full object-contain" /> : <span className="text-gray-400">Fachada Domicilio con Candidato</span>}
+          <div className="border border-black flex flex-col items-center justify-center overflow-hidden">
+            <div className="h-40 flex items-center justify-center w-full">
+              {formData.fotos.fachada ? <img src={formData.fotos.fachada} alt="Fachada" className="max-h-full max-w-full object-contain" /> : <span className="text-gray-400">Fachada Domicilio con Candidato</span>}
+            </div>
+            {formData.fotosNotas?.fachada?.mostrar && formData.fotosNotas.fachada.texto && (
+              <p className="text-[7px] text-blue-700 p-1 break-all w-full text-center border-t border-black">{formData.fotosNotas.fachada.texto}</p>
+            )}
           </div>
-          <div className="border border-black h-40 flex items-center justify-center overflow-hidden">
-            {formData.fotos.interior ? <img src={formData.fotos.interior} alt="Interior" className="max-h-full max-w-full object-contain" /> : <span className="text-gray-400">Interior con Candidato</span>}
+          <div className="border border-black flex flex-col items-center justify-center overflow-hidden">
+            <div className="h-40 flex items-center justify-center w-full">
+              {formData.fotos.interior ? <img src={formData.fotos.interior} alt="Interior" className="max-h-full max-w-full object-contain" /> : <span className="text-gray-400">Interior con Candidato</span>}
+            </div>
+            {formData.fotosNotas?.interior?.mostrar && formData.fotosNotas.interior.texto && (
+              <p className="text-[7px] text-blue-700 p-1 break-all w-full text-center border-t border-black">{formData.fotosNotas.interior.texto}</p>
+            )}
           </div>
         </div>
 

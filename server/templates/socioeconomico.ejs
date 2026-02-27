@@ -34,29 +34,27 @@
   }
 
   /* ============================================
-     WATERMARK - diagonal tenue de fondo
+     X IMAGE - esquina inferior derecha (grande)
      ============================================ */
-  .watermark {
+  .x-image {
     position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) rotate(-25deg);
-    width: 65%;
+    bottom: 0;
+    right: 0;
+    width: 95%;
     opacity: 0.07;
     pointer-events: none;
     z-index: 0;
-    filter: grayscale(30%);
   }
 
   /* ============================================
-     CORNER LOGO - esquina inferior derecha
+     CORNER LOGO - esquina superior derecha
      ============================================ */
   .corner-logo {
     position: fixed;
-    bottom: 18px;
+    top: 18px;
     right: 18px;
-    width: 90px;
-    opacity: 0.65;
+    width: 140px;
+    opacity: 0.45;
     pointer-events: none;
     z-index: 5;
     filter: drop-shadow(0 1px 3px rgba(0,0,0,0.18));
@@ -92,13 +90,14 @@
      SECTION HEADERS
      ============================================ */
   .section-header {
-    background-color: #e5e7eb;
+    background: #002A8F;
     padding: 5px 8px;
-    border: 1px solid #374151;
+    border: none;
+    border-radius: 3px;
     margin-bottom: 8px;
     font-weight: bold;
     font-size: 10pt;
-    color: #111827;
+    color: #ffffff;
     break-after: avoid;
     page-break-after: avoid;
   }
@@ -106,7 +105,7 @@
   .section-header-small {
     font-weight: normal;
     font-size: 7pt;
-    color: #4b5563;
+    color: rgba(255, 255, 255, 0.85);
   }
 
   /* ============================================
@@ -118,7 +117,7 @@
     font-weight: bold;
     text-transform: uppercase;
     margin-bottom: 12px;
-    color: #111827;
+    color: #002A8F;
     letter-spacing: 1px;
   }
 
@@ -126,14 +125,14 @@
      INFO LINES
      ============================================ */
   .info-line {
-    border-bottom: 1px solid #374151;
+    border-bottom: 1px solid #C5E8FF;
     padding: 2px 0;
     margin-top: 4px;
     font-size: 9.5pt;
   }
 
   .info-line strong {
-    color: #111827;
+    color: #004099;
   }
 
   /* ============================================
@@ -166,7 +165,7 @@
   }
 
   th, td {
-    border: 1px solid #4b5563;
+    border: 1px solid #d1d5db;
     padding: 4px 6px;
     text-align: center;
     vertical-align: middle;
@@ -177,10 +176,11 @@
   }
 
   thead th {
-    background-color: #f3f4f6;
+    background-color: #002A8F;
     font-weight: 600;
-    color: #111827;
+    color: #ffffff;
     font-size: 8.5pt;
+    border-color: #002A8F;
   }
 
   tbody tr {
@@ -189,7 +189,11 @@
   }
 
   tbody tr:nth-child(even) {
-    background-color: #fafafa;
+    background-color: #EDF2FC;
+  }
+
+  tbody tr:nth-child(odd) {
+    background-color: #ffffff;
   }
 
   td.text-left, th.text-left {
@@ -205,7 +209,7 @@
   }
 
   .check-mark {
-    color: #059669;
+    color: #002A8F;
     font-weight: bold;
   }
 
@@ -229,7 +233,7 @@
 
   .radio-selected {
     font-weight: bold;
-    color: #111827;
+    color: #002A8F;
   }
 
   /* ============================================
@@ -244,10 +248,11 @@
 
   .docs-block-header {
     font-weight: bold;
-    border-bottom: 1px solid #374151;
+    border-bottom: 2px solid #002A8F;
     margin-bottom: 4px;
     padding-bottom: 2px;
     font-size: 8.5pt;
+    color: #004099;
   }
 
   .docs-item {
@@ -259,7 +264,9 @@
      EMPLEOS
      ============================================ */
   .empleo-section {
-    border: 1px solid #4b5563;
+    border: 1px solid #A8DEFF;
+    border-top: 3px solid #002A8F;
+    border-radius: 4px;
     padding: 8px;
     margin-bottom: 10px;
   }
@@ -277,18 +284,19 @@
   }
 
   .grafica-selected {
-    color: #059669;
+    color: #002A8F;
   }
 
   .grafica-empty {
-    color: #e5e7eb;
+    color: #D6EFFF;
   }
 
   /* ============================================
      CONCLUSION & DICTAMEN
      ============================================ */
   .dictamen-box {
-    border: 2px solid #374151;
+    border: 2px solid #002A8F;
+    border-radius: 4px;
     padding: 10px;
     margin-bottom: 16px;
     text-align: center;
@@ -297,13 +305,13 @@
   }
 
   .dictamen-box.recomendable {
-    border-color: #059669;
-    background-color: #f0fdf4;
+    border-color: #25D366;
+    background-color: #EEFBF2;
   }
 
   .dictamen-box.reservas {
-    border-color: #d97706;
-    background-color: #fffbeb;
+    border-color: #63D1FF;
+    background-color: #F0FAFF;
   }
 
   .dictamen-box.no-recomendable {
@@ -332,14 +340,14 @@
   }
 
   .photo-container {
-    border: 1px solid #6b7280;
+    border: 1px solid #A8DEFF;
     border-radius: 4px;
     height: 180px;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    background: #f9fafb;
+    background: #F2F6FC;
   }
 
   .photo-container img {
@@ -351,7 +359,7 @@
   .photo-label {
     text-align: center;
     font-size: 8pt;
-    color: #6b7280;
+    color: #002A8F;
     margin-top: 2px;
   }
 
@@ -365,7 +373,9 @@
      REFERENCE CARDS
      ============================================ */
   .ref-card {
-    border: 1px solid #4b5563;
+    border: 1px solid #A8DEFF;
+    border-left: 3px solid #002A8F;
+    border-radius: 4px;
     padding: 6px 8px;
     margin-bottom: 8px;
     break-inside: avoid;
@@ -387,7 +397,7 @@
   .nota-footer {
     font-size: 7.5pt;
     text-align: justify;
-    border-top: 1px solid #374151;
+    border-top: 1px solid #A8DEFF;
     padding-top: 6px;
     color: #4b5563;
   }
@@ -416,7 +426,7 @@
     max-width: 100%;
     max-height: 72vh;
     object-fit: contain;
-    border: 1px solid #d1d5db;
+    border: 1px solid #A8DEFF;
     border-radius: 4px;
   }
   .extra-photo-caption {
@@ -424,17 +434,19 @@
     font-weight: 600;
     font-size: 12pt;
     margin-top: 16px;
-    color: #1f2937;
+    color: #002A8F;
   }
 </style>
 </head>
 <body>
 
-<!-- WATERMARK diagonal tenue -->
-<% if (data._logoBase64) { %>
-<img class="watermark" src="data:image/png;base64,<%= data._logoBase64 %>" alt="" />
-<!-- CORNER LOGO - esquina inferior derecha -->
-<img class="corner-logo" src="data:image/png;base64,<%= data._logoBase64 %>" alt="" />
+<!-- X IMAGE - esquina inferior derecha (grande) -->
+<% if (data._xImageBase64) { %>
+<img class="x-image" src="data:image/png;base64,<%= data._xImageBase64 %>" alt="" />
+<% } %>
+<!-- CORNER LOGO - esquina superior derecha -->
+<% if (data._cornerLogoBase64) { %>
+<img class="corner-logo" src="data:image/png;base64,<%= data._cornerLogoBase64 %>" alt="" />
 <% } %>
 
 <div class="content">
@@ -688,7 +700,7 @@
       <!-- Ingresos -->
       <table>
         <thead>
-          <tr><th colspan="3" style="background:#e5e7eb;">INGRESOS MENSUALES</th></tr>
+          <tr><th colspan="3">INGRESOS MENSUALES</th></tr>
           <tr>
             <th class="text-left">Nombre</th>
             <th>Sueldo</th>
@@ -708,7 +720,7 @@
       <!-- Egresos -->
       <table>
         <thead>
-          <tr><th colspan="2" style="background:#e5e7eb;">EGRESOS MENSUALES</th></tr>
+          <tr><th colspan="2">EGRESOS MENSUALES</th></tr>
           <tr>
             <th class="text-left">Conceptos</th>
             <th>Montos</th>
@@ -801,8 +813,11 @@
         <span class="radio-option <%= data.mobiliarioCalidad === opt ? 'radio-selected' : '' %>">(<%= data.mobiliarioCalidad === opt ? '●' : '○' %>) <%= opt %></span>
       <% }); %>
       &nbsp;;&nbsp;
+      <% var mobiliarioCantidadSeleccion = Array.isArray(data.mobiliarioCantidad)
+        ? data.mobiliarioCantidad
+        : (data.mobiliarioCantidad ? [data.mobiliarioCantidad] : []); %>
       <% ['Holgado','Completo','Incompleto','Deficiente'].forEach(function(opt) { %>
-        <span class="radio-option <%= data.mobiliarioCantidad === opt ? 'radio-selected' : '' %>">(<%= data.mobiliarioCantidad === opt ? '●' : '○' %>) <%= opt %></span>
+        <span class="radio-option <%= mobiliarioCantidadSeleccion.includes(opt) ? 'radio-selected' : '' %>">(<%= mobiliarioCantidadSeleccion.includes(opt) ? '●' : '○' %>) <%= opt %></span>
       <% }); %>
     </p>
 
@@ -813,8 +828,11 @@
     </p>
 
     <p class="radio-group"><strong>Condiciones:</strong>
+      <% var condicionesSeleccion = Array.isArray(data.condicionesVivienda)
+        ? data.condicionesVivienda
+        : (data.condicionesVivienda ? [data.condicionesVivienda] : []); %>
       <% ['Limpias','Sucias','Desordenadas','Ordenadas'].forEach(function(opt) { %>
-        <span class="radio-option <%= data.condicionesVivienda === opt ? 'radio-selected' : '' %>">(<%= data.condicionesVivienda === opt ? '●' : '○' %>) <%= opt %></span>
+        <span class="radio-option <%= condicionesSeleccion.includes(opt) ? 'radio-selected' : '' %>">(<%= condicionesSeleccion.includes(opt) ? '●' : '○' %>) <%= opt %></span>
       <% }); %>
     </p>
   </div>
@@ -852,12 +870,14 @@
     <div class="ref-card">
       <div class="grid-2 mb-2">
         <p class="info-line"><strong>Nombre:</strong> <%= vec.nombre || '' %></p>
-        <p class="info-line"><strong>Domicilio:</strong> <%= vec.domicilio || '' %></p>
+        <p class="info-line"><strong>Tel.:</strong> <%= vec.telefono || '' %></p>
       </div>
+      <p class="info-line"><strong>Domicilio:</strong> <%= vec.domicilio || '' %></p>
       <p class="info-line"><strong>¿Cómo conceptúa al aspirante?:</strong> <%= vec.conceptoAspirante || '' %></p>
       <p class="info-line"><strong>¿Cómo conceptúa a la familia como vecinos?:</strong> <%= vec.conceptoFamilia || '' %></p>
       <div class="grid-2">
-        <p class="info-line"><strong>Estado civil del aspirante / ¿Tiene hijos?:</strong> <%= vec.estadoCivilHijos || '' %></p>
+        <p class="info-line"><strong>Estado civil del aspirante:</strong> <%= vec.estadoCivilVecinal || vec.estadoCivilHijos || '' %></p>
+        <p class="info-line"><strong>¿Tiene hijos?:</strong> <%= vec.tieneHijos || '' %></p>
         <p class="info-line"><strong>¿Sabe en donde trabaja?:</strong> <%= vec.sabeDondeTrabaja || '' %></p>
       </div>
       <p class="info-line"><strong>Notas:</strong> <%= vec.notas || '' %></p>
@@ -1016,6 +1036,9 @@
         <% } %>
       </div>
       <p class="photo-label">Del Candidato</p>
+      <% if (data.fotosNotas && data.fotosNotas.candidato && data.fotosNotas.candidato.mostrar && data.fotosNotas.candidato.texto) { %>
+        <p style="font-size:7px;color:#004099;word-break:break-all;text-align:center;margin-top:2px;"><%= data.fotosNotas.candidato.texto %></p>
+      <% } %>
     </div>
     <div>
       <div class="photo-container">
@@ -1026,6 +1049,9 @@
         <% } %>
       </div>
       <p class="photo-label">Fachada Domicilio con Candidato</p>
+      <% if (data.fotosNotas && data.fotosNotas.fachada && data.fotosNotas.fachada.mostrar && data.fotosNotas.fachada.texto) { %>
+        <p style="font-size:7px;color:#004099;word-break:break-all;text-align:center;margin-top:2px;"><%= data.fotosNotas.fachada.texto %></p>
+      <% } %>
     </div>
     <div>
       <div class="photo-container">
@@ -1036,6 +1062,9 @@
         <% } %>
       </div>
       <p class="photo-label">Interior con Candidato</p>
+      <% if (data.fotosNotas && data.fotosNotas.interior && data.fotosNotas.interior.mostrar && data.fotosNotas.interior.texto) { %>
+        <p style="font-size:7px;color:#004099;word-break:break-all;text-align:center;margin-top:2px;"><%= data.fotosNotas.interior.texto %></p>
+      <% } %>
     </div>
   </div>
 

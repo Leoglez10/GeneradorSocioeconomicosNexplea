@@ -3,23 +3,44 @@ const path = require('path');
 const fs = require('fs');
 const ejs = require('ejs');
 const { PDFDocument } = require('pdf-lib');
-const { generatePdf } = require('../utils/puppeteer');
+const { generatePdf, generateCoverPdf } = require('../utils/puppeteer');
 
 const router = express.Router();
 
-// Pre-leer el logo como base64 para embeber en la plantilla
-const logoPath = path.join(__dirname, '..', '..', 'WEB', 'app', 'src', 'assets', 'nexplea.png');
-let logoBase64 = '';
+// Pre-leer imágenes como base64 para embeber en la plantilla
+const cornerLogoPath = path.join(__dirname, '..', '..', 'WEB', 'app', 'src', 'assets', 'nexplea.png');
+const xImagePath = path.join(__dirname, '..', '..', 'WEB', 'app', 'src', 'assets', 'x.png');
+let cornerLogoBase64 = '';
+let xImageBase64 = '';
 try {
-  const logoBuffer = fs.readFileSync(logoPath);
-  logoBase64 = logoBuffer.toString('base64');
-  console.log('✅ Logo loaded for PDF watermark');
+  const cornerBuffer = fs.readFileSync(cornerLogoPath);
+  cornerLogoBase64 = cornerBuffer.toString('base64');
+  console.log('✅ Corner logo (nexplea3) loaded');
 } catch (err) {
-  console.warn('⚠️ Could not load logo:', err.message);
+  console.warn('⚠️ Could not load corner logo (nexplea3):', err.message);
+}
+try {
+  const xBuffer = fs.readFileSync(xImagePath);
+  xImageBase64 = xBuffer.toString('base64');
+  console.log('✅ X image loaded');
+} catch (err) {
+  console.warn('⚠️ Could not load x image:', err.message);
 }
 
-// Ruta a la plantilla EJS
+// Pre-leer imagen de portada como base64
+const portadaBgPath = path.join(__dirname, '..', '..', 'WEB', 'app', 'src', 'assets', 'portada nexplea.png');
+let portadaBgBase64 = '';
+try {
+  const portadaBuffer = fs.readFileSync(portadaBgPath);
+  portadaBgBase64 = portadaBuffer.toString('base64');
+  console.log('✅ Portada background image loaded');
+} catch (err) {
+  console.warn('⚠️ Could not load portada background image:', err.message);
+}
+
+// Rutas a las plantillas EJS
 const templatePath = path.join(__dirname, '..', 'templates', 'socioeconomico.ejs');
+const portadaTemplatePath = path.join(__dirname, '..', 'templates', 'portada.ejs');
 
 /**
  * Normaliza los datos del formulario asegurando que todos los campos
@@ -36,11 +57,29 @@ function normalizeFormData(raw) {
     'estudiosActuales', 'periodosInactivos', 'motivosInactivos',
     'religion', 'enfermedadesFamilia', 'planes', 'notasLaboralesFamiliares',
     'solucionDeficit', 'tiempoResidencia', 'nivelZona', 'tipoVivienda',
-    'mobiliarioCalidad', 'mobiliarioCantidad',
-    'tamanoVivienda', 'condicionesVivienda',
+    'mobiliarioCalidad',
+    'tamanoVivienda',
     'conclusionPersonal', 'conclusionLaboral', 'conclusionSocio', 'dictamen'
   ];
   stringFields.forEach(f => { if (!d[f]) d[f] = ''; });
+
+  // Mobiliario (Cantidad) puede ser selección múltiple
+  if (Array.isArray(d.mobiliarioCantidad)) {
+    d.mobiliarioCantidad = d.mobiliarioCantidad.filter(v => typeof v === 'string' && v.trim() !== '');
+  } else if (typeof d.mobiliarioCantidad === 'string' && d.mobiliarioCantidad.trim() !== '') {
+    d.mobiliarioCantidad = [d.mobiliarioCantidad];
+  } else {
+    d.mobiliarioCantidad = [];
+  }
+
+  // Condiciones de vivienda puede ser selección múltiple
+  if (Array.isArray(d.condicionesVivienda)) {
+    d.condicionesVivienda = d.condicionesVivienda.filter(v => typeof v === 'string' && v.trim() !== '');
+  } else if (typeof d.condicionesVivienda === 'string' && d.condicionesVivienda.trim() !== '') {
+    d.condicionesVivienda = [d.condicionesVivienda];
+  } else {
+    d.condicionesVivienda = [];
+  }
 
   // Documentos
   const docDefault = { checked: false, folio: '' };
@@ -111,6 +150,18 @@ function normalizeFormData(raw) {
     d.fotos = { candidato: '', fachada: '', interior: '' };
   }
 
+  // Notas/links de fotos
+  if (!d.fotosNotas || typeof d.fotosNotas !== 'object') {
+    d.fotosNotas = {};
+  }
+  ['candidato', 'fachada', 'interior'].forEach(k => {
+    if (!d.fotosNotas[k] || typeof d.fotosNotas[k] !== 'object') {
+      d.fotosNotas[k] = { mostrar: false, texto: '' };
+    } else {
+      d.fotosNotas[k] = { mostrar: !!d.fotosNotas[k].mostrar, texto: d.fotosNotas[k].texto || '' };
+    }
+  });
+
   // Fotos extras
   if (!Array.isArray(d.fotosExtras)) d.fotosExtras = [];
   d.fotosExtras = d.fotosExtras.map(f => ({
@@ -127,6 +178,14 @@ function normalizeFormData(raw) {
 
   // Marca de agua en extras
   if (typeof d.marcaDeAguaEnExtras !== 'boolean') d.marcaDeAguaEnExtras = true;
+
+  // Portada
+  if (typeof d.incluirPortada !== 'boolean') d.incluirPortada = true;
+  if (typeof d.empresa !== 'string') d.empresa = '';
+
+  // Tamaño de hoja del PDF
+  const allowedPageFormats = ['Letter', 'A4'];
+  if (!allowedPageFormats.includes(d.pageFormat)) d.pageFormat = 'Letter';
 
   return d;
 }
@@ -147,8 +206,9 @@ router.post('/generate-pdf', async (req, res) => {
     // Normalizar datos para evitar errores de propiedades undefined
     const formData = normalizeFormData(rawData);
 
-    // Inyectar logo base64 en los datos
-    formData._logoBase64 = logoBase64;
+    // Inyectar imágenes base64 en los datos
+    formData._cornerLogoBase64 = cornerLogoBase64;
+    formData._xImageBase64 = xImageBase64;
 
     // Renderizar la plantilla HTML con EJS
     const html = await ejs.renderFile(templatePath, { data: formData }, {
@@ -156,24 +216,69 @@ router.post('/generate-pdf', async (req, res) => {
     });
 
     // Generar PDF con Puppeteer
-    const pdfBuffer = await generatePdf(html);
+    const pdfBuffer = await generatePdf(html, formData.pageFormat);
 
-    // --- Fusionar documentos PDF extra si existen ---
+    // --- Generar portada si está activada ---
+    let coverPdfBuffer = null;
+    if (formData.incluirPortada && portadaBgBase64) {
+      try {
+        formData._portadaBgBase64 = portadaBgBase64;
+        const coverHtml = await ejs.renderFile(portadaTemplatePath, { data: formData }, { async: true });
+        coverPdfBuffer = await generateCoverPdf(coverHtml, formData.pageFormat);
+        console.log('✅ Cover page generated');
+      } catch (coverErr) {
+        console.warn('⚠️ Could not generate cover page:', coverErr.message);
+      }
+    }
+
+    // --- Fusionar portada + estudio + documentos extras ---
     const docsExtras = formData.documentosExtras.filter(d => d.archivo);
     let finalPdfBuffer = pdfBuffer;
 
+    // Si hay portada, anteponerla al estudio
+    if (coverPdfBuffer) {
+      try {
+        const mergedDoc = await PDFDocument.create();
+
+        // Copiar página de portada (sin watermark)
+        const coverDoc = await PDFDocument.load(coverPdfBuffer);
+        const [coverPage] = await mergedDoc.copyPages(coverDoc, [0]);
+        mergedDoc.addPage(coverPage);
+
+        // Copiar todas las páginas del estudio
+        const studyDoc = await PDFDocument.load(pdfBuffer);
+        const studyPages = await mergedDoc.copyPages(studyDoc, studyDoc.getPageIndices());
+        for (const page of studyPages) {
+          mergedDoc.addPage(page);
+        }
+
+        const mergedBytes = await mergedDoc.save();
+        finalPdfBuffer = Buffer.from(mergedBytes);
+        console.log('✅ Cover page prepended to study');
+      } catch (prependErr) {
+        console.warn('⚠️ Could not prepend cover page, using study PDF only:', prependErr.message);
+      }
+    }
+
     if (docsExtras.length > 0) {
       try {
-        const basePdf = await PDFDocument.load(pdfBuffer);
+        const basePdf = await PDFDocument.load(finalPdfBuffer);
 
         // Preparar la imagen del logo para marca de agua si es necesario
-        let logoImage = null;
-        let logoDims = null;
-        if (formData.marcaDeAguaEnExtras && logoBase64) {
-          const logoBytes = Buffer.from(logoBase64, 'base64');
-          logoImage = await basePdf.embedPng(logoBytes).catch(() => null);
-          if (logoImage) {
-            logoDims = logoImage.scale(1);
+        let cornerImage = null;
+        let cornerDims = null;
+        let xImage = null;
+        let xDims = null;
+        if (formData.marcaDeAguaEnExtras) {
+          if (cornerLogoBase64) {
+            const cornerBytes = Buffer.from(cornerLogoBase64, 'base64');
+            cornerImage = await basePdf.embedPng(cornerBytes).catch(() => null);
+            if (cornerImage) cornerDims = cornerImage.scale(1);
+          }
+          if (xImageBase64) {
+            const xBytes = Buffer.from(xImageBase64, 'base64');
+            xImage = await basePdf.embedPng(xBytes).catch(() => null);
+            if (xImage) xDims = xImage.scale(1);
           }
         }
 
@@ -188,32 +293,34 @@ router.post('/generate-pdf', async (req, res) => {
             for (const page of copiedPages) {
               basePdf.addPage(page);
 
-              // Agregar marca de agua si está habilitado
-              if (logoImage && logoDims) {
-                const { width, height } = page.getSize();
+              // Agregar imágenes decorativas si están habilitadas
+              const { width, height } = page.getSize();
 
-                // Marca de agua diagonal central (opacidad ~0.07)
-                const wmWidth = width * 0.65;
-                const wmScale = wmWidth / logoDims.width;
-                const wmHeight = logoDims.height * wmScale;
-                page.drawImage(logoImage, {
-                  x: (width - wmWidth) / 2,
-                  y: (height - wmHeight) / 2,
-                  width: wmWidth,
-                  height: wmHeight,
+              // X image - esquina inferior derecha (grande, ~95% del ancho)
+              if (xImage && xDims) {
+                const xWidth = width * 0.95;
+                const xScale = xWidth / xDims.width;
+                const xHeight = xDims.height * xScale;
+                page.drawImage(xImage, {
+                  x: width - xWidth,
+                  y: 0,
+                  width: xWidth,
+                  height: xHeight,
                   opacity: 0.07,
                 });
+              }
 
-                // Logo esquina inferior derecha (opacidad ~0.65)
-                const cornerWidth = 90;
-                const cornerScale = cornerWidth / logoDims.width;
-                const cornerHeight = logoDims.height * cornerScale;
-                page.drawImage(logoImage, {
-                  x: width - cornerWidth - 18,
-                  y: 18,
-                  width: cornerWidth,
-                  height: cornerHeight,
-                  opacity: 0.65,
+              // Corner logo (nexplea) - esquina superior derecha
+              if (cornerImage && cornerDims) {
+                const cWidth = 140;
+                const cScale = cWidth / cornerDims.width;
+                const cHeight = cornerDims.height * cScale;
+                page.drawImage(cornerImage, {
+                  x: width - cWidth - 18,
+                  y: height - cHeight - 18,
+                  width: cWidth,
+                  height: cHeight,
+                  opacity: 0.45,
                 });
               }
             }
@@ -258,7 +365,8 @@ router.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     service: 'ESE PDF Generator',
-    logoLoaded: !!logoBase64,
+    cornerLogoLoaded: !!cornerLogoBase64,
+    xImageLoaded: !!xImageBase64,
     timestamp: new Date().toISOString()
   });
 });

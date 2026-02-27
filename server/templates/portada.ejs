@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Poppins', 'Segoe UI', Arial, sans-serif;
+    }
+
+    .page {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .bg-image {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+    }
+
+    /* Overlay oscuro sutil para mejorar legibilidad del texto */
+    .overlay {
+      display: none;
+    }
+
+    .content {
+      position: absolute;
+      z-index: 2;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 75%;
+      text-align: center;
+      color: #004099;
+    }
+
+    .title {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      color: #002A8F;
+    }
+
+    .divider {
+      width: 120px;
+      height: 3px;
+      background: linear-gradient(90deg, #002A8F, #63D1FF);
+      margin: 16px auto;
+      border-radius: 2px;
+    }
+
+    .field {
+      margin-bottom: 10px;
+    }
+
+
+    .field-label {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: #63D1FF;
+      margin-bottom: 2px;
+      text-shadow: 0 1px 2px rgba(255,255,255,0.25);
+    }
+
+    .field-value {
+      font-size: 18px;
+      font-weight: 600;
+      color: #004099;
+      letter-spacing: 0.5px;
+    }
+
+    .field-value.nombre {
+      font-size: 24px;
+      font-weight: 700;
+      color: #004099;
+      letter-spacing: 0.5px;
+    }
+
+    .fecha {
+      margin-top: 20px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #004099;
+      letter-spacing: 1.5px;
+      text-shadow: 0 1px 2px rgba(255,255,255,0.25);
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <!-- Imagen de fondo -->
+    <img class="bg-image" src="data:image/png;base64,<%= data._portadaBgBase64 %>" alt="Portada" />
+
+    <!-- Overlay para legibilidad -->
+    <div class="overlay"></div>
+
+    <!-- Contenido dinámico -->
+    <div class="content">
+      <div class="title">Estudio Socioeconómico</div>
+
+      <div class="divider"></div>
+
+      <% if (data.nombre) { %>
+        <div class="field">
+          <div class="field-label">Candidato</div>
+          <div class="field-value nombre"><%= data.nombre %></div>
+        </div>
+      <% } %>
+
+      <% if (data.puesto) { %>
+        <div class="field">
+          <div class="field-label">Puesto</div>
+          <div class="field-value"><%= data.puesto %></div>
+        </div>
+      <% } %>
+
+      <% if (data.empresa) { %>
+        <div class="field">
+          <div class="field-label">Empresa</div>
+          <div class="field-value"><%= data.empresa %></div>
+        </div>
+      <% } %>
+
+      <% if (data.fecha) { %>
+        <div class="fecha">
+          <%
+            // Formatear fecha a español
+            const partes = data.fecha.split('-');
+            const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+            const fechaFormateada = partes.length === 3
+              ? `${parseInt(partes[2])} de ${meses[parseInt(partes[1]) - 1]} de ${partes[0]}`
+              : data.fecha;
+          %>
+          <%= fechaFormateada %>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</body>
+</html>
