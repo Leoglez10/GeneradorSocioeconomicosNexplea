@@ -62,6 +62,7 @@ COPY --from=frontend-build /build/dist ./WEB/app/dist/
 # Copiar las imágenes para el PDF
 COPY WEB/app/src/assets/nexplea.png ./WEB/app/src/assets/nexplea.png
 COPY WEB/app/src/assets/x.png ./WEB/app/src/assets/x.png
+COPY ["WEB/app/src/assets/portada nexplea.png", "./WEB/app/src/assets/portada nexplea.png"]
 
 # Variable de entorno para producción
 ENV NODE_ENV=production
