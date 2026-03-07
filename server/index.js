@@ -27,9 +27,8 @@ app.use(helmet({
 
 app.use(cors({
   origin: (origin, callback) => {
-    // En producción, exigir origin
-    if (!origin && !isProduction) return callback(null, true);
-    if (!origin && isProduction) return callback(new Error('Origin required in production'));
+    // Permitir requests sin Origin (health checks, server-to-server, curl, etc.)
+    if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error('Not allowed by CORS'));
   },
