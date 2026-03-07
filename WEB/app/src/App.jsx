@@ -1471,9 +1471,9 @@ export default function App() {
               <button
                 onClick={() => { navigator.clipboard.writeText(cloudCode); showToast('¡Código copiado al portapapeles! 📋'); }}
                 className="hidden sm:flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-bold bg-brand-secondary text-brand-primary hover:bg-brand-secondary/90 shadow-md transition-all hover:scale-105 cursor-pointer"
-                title="Clic para copiar el código"
+                title="Clic para copiar y compartir el progreso"
               >
-                📋 <span className="hidden sm:inline">Código: </span>{cloudCode}
+                📋 <span className="hidden sm:inline">Comparte progreso: </span>{cloudCode}
               </button>
             )}
             <span className="hidden sm:inline-flex text-white text-xs sm:text-sm font-medium bg-brand-navy px-2 sm:px-3 py-1 rounded-full whitespace-nowrap">{currentStep}/{totalSteps}</span>
@@ -1521,6 +1521,19 @@ export default function App() {
             <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm animate-fade-in">
               <p className="text-xs font-semibold text-gray-800 mb-1">Progreso del formulario</p>
               <p className="text-xs text-gray-500 mb-2">Guardar o cargar un archivo de avance (.json).</p>
+              {cloudCode && (
+                <div className="mb-2 rounded-md border border-blue-200 bg-blue-50 p-2">
+                  <p className="text-[11px] font-semibold text-blue-800">Comparte este código para continuar el progreso:</p>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(cloudCode); showToast('¡Código copiado al portapapeles! 📋'); }}
+                    className="mt-1 w-full flex items-center justify-between rounded border border-blue-300 bg-white px-2 py-1 text-xs font-bold text-blue-700"
+                    title="Copiar código de progreso"
+                  >
+                    <span className="truncate">{cloudCode}</span>
+                    <span className="ml-2">Copiar</span>
+                  </button>
+                </div>
+              )}
               <div className="space-y-2">
                 <button onClick={() => { exportProgress(); setShowProgressMenu(false); }} className="w-full flex items-center px-3 py-2 text-sm rounded-md text-green-700 bg-green-50 hover:bg-green-100 transition-colors">
                   <Download className="w-4 h-4 mr-2" /> Guardar Progreso
@@ -1573,6 +1586,19 @@ export default function App() {
           <div className="absolute bottom-16 right-0 bg-white rounded-lg shadow-2xl border border-gray-200 p-4 w-64 animate-fade-in">
             <p className="text-sm font-semibold text-gray-800 mb-3">Progreso del formulario</p>
             <p className="text-xs text-gray-500 mb-3">Guarda tu avance como archivo y compártelo para que otra persona lo continúe.</p>
+            {cloudCode && (
+              <div className="mb-3 rounded-md border border-blue-200 bg-blue-50 p-2.5">
+                <p className="text-[11px] font-semibold text-blue-800">Comparte este código para continuar el progreso:</p>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(cloudCode); showToast('¡Código copiado al portapapeles! 📋'); }}
+                  className="mt-1 w-full flex items-center justify-between rounded border border-blue-300 bg-white px-2 py-1 text-xs font-bold text-blue-700"
+                  title="Copiar código de progreso"
+                >
+                  <span className="truncate">{cloudCode}</span>
+                  <span className="ml-2">Copiar</span>
+                </button>
+              </div>
+            )}
             <div className="space-y-2">
               <button onClick={() => { exportProgress(); setShowProgressMenu(false); }} className="w-full flex items-center px-3 py-2 text-sm rounded-md text-green-700 bg-green-50 hover:bg-green-100 transition-colors">
                 <Download className="w-4 h-4 mr-2" /> Guardar Progreso

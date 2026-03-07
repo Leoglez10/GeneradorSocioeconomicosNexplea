@@ -170,7 +170,7 @@ export default function SignInCard() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.5 }}
-                className="w-full max-w-4xl overflow-hidden rounded-2xl flex bg-white shadow-xl"
+                className="w-full max-w-4xl overflow-hidden rounded-2xl flex bg-white border-2 border-brand-primary/20 ring-1 ring-brand-secondary/30 shadow-2xl"
             >
                 {/* Left side - Map & Logo */}
                 <div className="hidden md:block w-1/2 h-[600px] relative overflow-hidden border-r border-gray-100">
