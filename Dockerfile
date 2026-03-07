@@ -68,6 +68,10 @@ COPY ["WEB/app/src/assets/portada nexplea.png", "./WEB/app/src/assets/portada ne
 ENV NODE_ENV=production
 ENV PORT=3001
 
+# Configurar usuario no root por seguridad
+RUN chown -R node:node /app
+USER node
+
 # Exponer el puerto
 EXPOSE 3001
 

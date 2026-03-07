@@ -1,7 +1,12 @@
 ﻿const API_BASE_URL = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { ChevronRight, ChevronLeft, Plus, Trash2, Printer, FileText, CheckCircle, RotateCcw, Upload, ImagePlus, FilePlus2, Download, Save, FileUp, X, ArrowRight, ArrowUp, ArrowDown, FolderOpen, Home, AlertTriangle, Info, XCircle, BookOpen } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Plus, Trash2, Printer, FileText, CheckCircle, RotateCcw, Upload, ImagePlus, FilePlus2, Download, Save, FileUp, X, ArrowRight, ArrowUp, ArrowDown, FolderOpen, Home, AlertTriangle, Info, XCircle, BookOpen, Cloud, CloudOff, Loader2, LogOut } from 'lucide-react';
 import nexpleaLogo from './assets/nexplea2.png';
+import HelpButton from './HelpButton';
+import { useAuth } from './AuthProvider';
+import LoginScreen from './LoginScreen';
+import Dashboard from './Dashboard';
+import { saveStudy, loadStudyById, loadStudyByCode, getUserStudies } from './cloudSaveService';
 
 // --- ESTADO INICIAL ---
 const initialData = {
@@ -10,7 +15,7 @@ const initialData = {
   puesto: '', empresa: '', nombre: '', lugarNacimiento: '', fechaNacimiento: '', edad: '', sexo: '', estadoCivil: '',
   calle: '', colonia: '', municipio: '', cp: '', estado: '',
   entreCalles: '', gradoEstudios: '', telefonos: '',
-  
+
   // 2. Documentos
   docs: {
     actaNacimiento: { checked: false, folio: '' },
@@ -79,8 +84,8 @@ const initialData = {
   referenciasVecinales: [{ id: 1, nombre: '', telefono: '', domicilio: '', conceptoAspirante: '', conceptoFamilia: '', estadoCivilVecinal: '', tieneHijos: '', sabeDondeTrabaja: '', notas: '' }],
 
   // 12. Laboral (Dinámico)
-  empleos: [{ 
-    id: 1, 
+  empleos: [{
+    id: 1,
     // Candidato
     empresa: '', area: '', domicilio: '', colonia: '', cp: '', telefono: '', tipoEmpresa: '', puesto: '', periodo: '', sueldoInicial: '', sueldoFinal: '', jefe: '', puestoJefe: '', descripcionTrabajo: '', motivoSalida: '',
     // Validación
@@ -105,6 +110,8 @@ const initialData = {
 };
 
 export default function App() {
+  const { user, loading: authLoading } = useAuth();
+
   const normalizeArray = useCallback((value) => {
     if (Array.isArray(value)) return value;
     if (typeof value === 'string' && value.trim() !== '') return [value];
@@ -128,28 +135,147 @@ export default function App() {
           condicionesVivienda: normalizeArray(parsed.condicionesVivienda)
         };
       }
-    } catch {}
+    } catch { }
     return initialData;
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [showProgressMenu, setShowProgressMenu] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(() => {
-    try { return !localStorage.getItem('ese_formData'); } catch { return true; }
-  });
+  const [showWelcome, setShowWelcome] = useState(true); // Always start at dashboard
   const [showLoadModal, setShowLoadModal] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [loadError, setLoadError] = useState('');
-  const [modal, setModal] = useState(null); // { type: 'confirm'|'alert', title, message, onConfirm, variant: 'warning'|'danger'|'error'|'info' }
+  const [modal, setModal] = useState(null);
   const fileInputRef = useRef(null);
   const totalSteps = 10;
+  const stepTitles = {
+    1: 'Datos Generales',
+    2: 'Documentación y Escolaridad',
+    3: 'Antecedentes Laborales',
+    4: 'Sociales y Médicos',
+    5: 'Grupo Familiar',
+    6: 'Situación Económica',
+    7: 'Habitación y Ambiente',
+    8: 'Referencias',
+    9: 'Empleos',
+    10: 'Conclusión y PDF'
+  };
+  const stepProgress = Math.round((currentStep / totalSteps) * 100);
+
+  // --- CLOUD SAVE STATE ---
+  const [cloudDocId, setCloudDocId] = useState(null);
+  const [cloudCode, setCloudCode] = useState(null);
+  const [cloudSaveStatus, setCloudSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
+  const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' | 'info' }
+  const autoSaveTimer = useRef(null);
+  const lastSavedData = useRef(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   // Auto-guardar en localStorage cada vez que cambian los datos o el paso
   useEffect(() => {
     try {
       localStorage.setItem('ese_formData', JSON.stringify(formData));
       localStorage.setItem('ese_step', String(currentStep));
-    } catch {}
+    } catch { }
   }, [formData, currentStep]);
+
+  // --- CLOUD AUTO-SAVE (debounced 5s) ---
+  useEffect(() => {
+    if (!user || showWelcome || !cloudDocId) return;
+
+    // Don't auto-save if data hasn't changed
+    const dataStr = JSON.stringify(formData);
+    if (lastSavedData.current === dataStr) return;
+
+    // Show pending immediately when data changes
+    setCloudSaveStatus('pending');
+
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+
+    autoSaveTimer.current = setTimeout(async () => {
+      try {
+        setCloudSaveStatus('saving');
+        const dataToSave = { ...formData, _currentStep: currentStep };
+        const result = await saveStudy(dataToSave, cloudDocId, cloudCode);
+        setCloudDocId(result.docId);
+        setCloudCode(result.code);
+        lastSavedData.current = dataStr;
+        setCloudSaveStatus('saved');
+        setTimeout(() => setCloudSaveStatus('idle'), 3000);
+      } catch (err) {
+        console.error('Auto-save failed:', err);
+        setCloudSaveStatus('error');
+        setTimeout(() => setCloudSaveStatus('idle'), 5000);
+      }
+    }, 5000);
+
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  }, [formData, currentStep, user, showWelcome, cloudDocId, cloudCode]);
+
+
+
+  // --- DASHBOARD HANDLERS ---
+  const handleNewStudy = async () => {
+    const newData = { ...initialData, fecha: new Date().toISOString().split('T')[0] };
+    setFormData(newData);
+    setCurrentStep(1);
+    setCloudDocId(null);
+    setCloudCode(null);
+    lastSavedData.current = null;
+    setShowWelcome(false);
+    // Save immediately to get docId/code
+    try {
+      setCloudSaveStatus('saving');
+      const result = await saveStudy({ ...newData, _currentStep: 1 });
+      setCloudDocId(result.docId);
+      setCloudCode(result.code);
+      lastSavedData.current = JSON.stringify(newData);
+      setCloudSaveStatus('saved');
+      setTimeout(() => setCloudSaveStatus('idle'), 3000);
+    } catch (err) {
+      console.error('Initial save failed:', err);
+      setCloudSaveStatus('error');
+    }
+  };
+
+  const handleLoadStudy = async (docId) => {
+    try {
+      const result = await loadStudyById(docId);
+      setFormData({ ...initialData, ...result.formData });
+      setCurrentStep(result.meta.currentStep || 1);
+      setCloudDocId(result.meta.docId);
+      setCloudCode(result.meta.code);
+      lastSavedData.current = JSON.stringify(result.formData);
+      setShowWelcome(false);
+    } catch (err) {
+      console.error('Load study failed:', err);
+      alert('Error al cargar el estudio: ' + err.message);
+    }
+  };
+
+  const handleExportStudy = async (docId) => {
+    try {
+      const result = await loadStudyById(docId);
+      const dataStr = JSON.stringify(result.formData, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ESE_Progreso_${(result.formData.nombre || 'Candidato').replace(/\s+/g, '_')}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('Error al exportar: ' + err.message);
+    }
+  };
 
   // --- HANDLERS ---
   const handleChange = (e) => {
@@ -349,7 +475,7 @@ export default function App() {
         setFormData(initialData);
         setCurrentStep(1);
         setShowWelcome(true);
-        try { localStorage.removeItem('ese_formData'); localStorage.removeItem('ese_step'); } catch {}
+        try { localStorage.removeItem('ese_formData'); localStorage.removeItem('ese_step'); } catch { }
         setModal(null);
       }
     });
@@ -359,12 +485,15 @@ export default function App() {
     setModal({
       type: 'confirm',
       variant: 'info',
-      title: 'Volver al inicio',
-      message: 'Esto te llevará a la página de inicio. Asegúrate de haber guardado tu progreso antes de continuar.',
-      confirmText: 'Sí, ir al inicio',
+      title: 'Volver al Dashboard',
+      message: 'Tu progreso se guarda automáticamente en la nube. ¿Deseas volver al panel principal?',
+      confirmText: 'Sí, ir al Dashboard',
       onConfirm: () => {
         setShowWelcome(true);
         setShowProgressMenu(false);
+        setCloudDocId(null);
+        setCloudCode(null);
+        lastSavedData.current = null;
         setModal(null);
       }
     });
@@ -442,6 +571,23 @@ export default function App() {
     if (file) processFile(file);
   }, [processFile]);
 
+  // --- AUTH LOADING ---
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-500">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // --- LOGIN GATE ---
+  if (!user) {
+    return <LoginScreen />;
+  }
+
   const generatePDF = async () => {
     setIsGenerating(true);
     try {
@@ -482,7 +628,7 @@ export default function App() {
   // --- COMPONENTES DE PASOS ---
   const Step1 = () => (
     <div className="space-y-6 animate-fade-in">
-      <h2 className="text-2xl font-bold text-blue-800 border-b pb-2">I. Datos Generales</h2>
+      <h2 className="text-2xl font-bold text-blue-800 border-b pb-2 flex items-center gap-2">I. Datos Generales <HelpButton stepKey="step1" /></h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div><label className="block text-sm font-medium text-gray-700">Fecha</label><input type="date" name="fecha" value={formData.fecha} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" /></div>
         <div><label className="block text-sm font-medium text-gray-700">Puesto que solicita</label><input type="text" name="puesto" value={formData.puesto} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" /></div>
@@ -506,7 +652,7 @@ export default function App() {
 
   const Step2 = () => (
     <div className="space-y-6 animate-fade-in">
-      <h2 className="text-2xl font-bold text-blue-800 border-b pb-2">II. Documentos Comprobatorios</h2>
+      <h2 className="text-2xl font-bold text-blue-800 border-b pb-2 flex items-center gap-2">II. Documentos Comprobatorios <HelpButton stepKey="step2" /></h2>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {Object.entries(formData.docs).map(([key, doc]) => (
           <div key={key} className="flex flex-col space-y-2 p-3 border rounded-md bg-gray-50">
@@ -523,7 +669,7 @@ export default function App() {
 
   const Step3 = () => (
     <div className="space-y-6 animate-fade-in">
-      <h2 className="text-2xl font-bold text-blue-800 border-b pb-2">III. Historial Académico</h2>
+      <h2 className="text-2xl font-bold text-blue-800 border-b pb-2 flex items-center gap-2">III. Historial Académico <HelpButton stepKey="step3" /></h2>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 border">
           <thead className="bg-gray-50">
@@ -558,7 +704,7 @@ export default function App() {
 
   const Step4 = () => (
     <div className="space-y-6 animate-fade-in">
-      <h2 className="text-2xl font-bold text-blue-800 border-b pb-2">IV. Antecedentes Sociales y Médicos</h2>
+      <h2 className="text-2xl font-bold text-blue-800 border-b pb-2 flex items-center gap-2">IV. Antecedentes Sociales y Médicos <HelpButton stepKey="step4" /></h2>
       <div className="grid grid-cols-1 gap-4">
         {['deporte', 'sindicato', 'partidoPolitico', 'alcohol', 'tabaco', 'cirugias'].map(campo => (
           <div key={campo} className="flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-4 p-3 border rounded-md bg-gray-50">
@@ -574,8 +720,8 @@ export default function App() {
           </div>
         ))}
         <div className="flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-4 p-3 border rounded-md bg-gray-50">
-            <span className="w-48 font-medium text-gray-700">Religión</span>
-            <input type="text" name="religion" value={formData.religion} onChange={handleChange} className="flex-1 rounded-md border-gray-300 shadow-sm p-2 border" />
+          <span className="w-48 font-medium text-gray-700">Religión</span>
+          <input type="text" name="religion" value={formData.religion} onChange={handleChange} className="flex-1 rounded-md border-gray-300 shadow-sm p-2 border" />
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -587,15 +733,15 @@ export default function App() {
 
   const Step5 = () => (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-between items-center border-b pb-2">
-        <h2 className="text-2xl font-bold text-blue-800">V. Datos del Grupo Familiar</h2>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b pb-2">
+        <h2 className="text-2xl font-bold text-blue-800 flex items-center gap-2">V. Datos del Grupo Familiar <HelpButton stepKey="step5" /></h2>
         <button onClick={() => addDynamicItem('familiares', { nombre: '', parentesco: '', edad: '', edoCivil: '', celular: '', viveConUd: 'Sí' })} className="flex items-center text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"><Plus className="w-4 h-4 mr-1" /> Agregar Familiar</button>
       </div>
       <div className="space-y-4">
         {formData.familiares.map((fam, index) => (
-          <div key={fam.id} className="grid grid-cols-1 md:grid-cols-7 gap-2 items-end p-4 border rounded-md bg-gray-50 relative">
+          <div key={fam.id} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-2 items-end p-4 pr-10 border rounded-md bg-gray-50 relative">
             <div className="absolute top-2 right-2"><button onClick={() => removeDynamicItem('familiares', fam.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button></div>
-            <div className="md:col-span-2"><label className="block text-xs font-medium text-gray-700">Nombre</label><input type="text" value={fam.nombre} onChange={(e) => handleDynamicChange('familiares', fam.id, 'nombre', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
+            <div className="sm:col-span-2 lg:col-span-2"><label className="block text-xs font-medium text-gray-700">Nombre</label><input type="text" value={fam.nombre} onChange={(e) => handleDynamicChange('familiares', fam.id, 'nombre', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
             <div><label className="block text-xs font-medium text-gray-700">Parentesco</label><input type="text" value={fam.parentesco} onChange={(e) => handleDynamicChange('familiares', fam.id, 'parentesco', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
             <div><label className="block text-xs font-medium text-gray-700">Edad</label><input type="text" value={fam.edad} onChange={(e) => handleDynamicChange('familiares', fam.id, 'edad', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
             <div><label className="block text-xs font-medium text-gray-700">Edo. Civil</label><input type="text" value={fam.edoCivil} onChange={(e) => handleDynamicChange('familiares', fam.id, 'edoCivil', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
@@ -605,13 +751,13 @@ export default function App() {
         ))}
       </div>
 
-      <div className="flex justify-between items-center border-b pb-2 mt-8">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b pb-2 mt-8">
         <h2 className="text-2xl font-bold text-blue-800">VI. Antecedentes Laborales Familiares</h2>
         <button onClick={() => addDynamicItem('laboralesFamiliares', { nombre: '', empresa: '', puesto: '', antiguedad: '' })} className="flex items-center text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"><Plus className="w-4 h-4 mr-1" /> Agregar</button>
       </div>
       <div className="space-y-4">
         {formData.laboralesFamiliares.map((lab) => (
-          <div key={lab.id} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end p-4 border rounded-md bg-gray-50 relative">
+          <div key={lab.id} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 items-end p-4 pr-10 border rounded-md bg-gray-50 relative">
             <div className="absolute top-2 right-2"><button onClick={() => removeDynamicItem('laboralesFamiliares', lab.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button></div>
             <div><label className="block text-xs font-medium text-gray-700">Nombre</label><input type="text" value={lab.nombre} onChange={(e) => handleDynamicChange('laboralesFamiliares', lab.id, 'nombre', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
             <div><label className="block text-xs font-medium text-gray-700">Empresa</label><input type="text" value={lab.empresa} onChange={(e) => handleDynamicChange('laboralesFamiliares', lab.id, 'empresa', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
@@ -626,7 +772,7 @@ export default function App() {
 
   const Step6 = () => (
     <div className="space-y-6 animate-fade-in">
-      <h2 className="text-2xl font-bold text-blue-800 border-b pb-2">VII. Situación Económica</h2>
+      <h2 className="text-2xl font-bold text-blue-800 border-b pb-2 flex items-center gap-2">VII. Situación Económica <HelpButton stepKey="step6" /></h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div>
           <div className="flex justify-between items-center mb-2">
@@ -634,10 +780,10 @@ export default function App() {
             <button onClick={() => addDynamicItem('ingresos', { nombre: '', sueldo: '', aportacion: '' })} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200">+ Ingreso</button>
           </div>
           {formData.ingresos.map(ing => (
-            <div key={ing.id} className="flex space-x-2 mb-2 relative pr-6">
-              <input type="text" placeholder="Nombre" value={ing.nombre} onChange={(e) => handleDynamicChange('ingresos', ing.id, 'nombre', e.target.value)} className="w-1/3 rounded-md border-gray-300 shadow-sm p-1 border text-sm" />
-              <input type="text" placeholder="Sueldo" value={ing.sueldo} onChange={(e) => handleDynamicChange('ingresos', ing.id, 'sueldo', e.target.value)} className="w-1/3 rounded-md border-gray-300 shadow-sm p-1 border text-sm" />
-              <input type="text" placeholder="Aportación" value={ing.aportacion} onChange={(e) => handleDynamicChange('ingresos', ing.id, 'aportacion', e.target.value)} className="w-1/3 rounded-md border-gray-300 shadow-sm p-1 border text-sm" />
+            <div key={ing.id} className="flex flex-col sm:flex-row gap-2 mb-4 sm:mb-2 relative pr-8 sm:pr-6">
+              <input type="text" placeholder="Nombre" value={ing.nombre} onChange={(e) => handleDynamicChange('ingresos', ing.id, 'nombre', e.target.value)} className="w-full sm:w-1/3 rounded-md border-gray-300 shadow-sm p-1 border text-sm" />
+              <input type="text" placeholder="Sueldo" value={ing.sueldo} onChange={(e) => handleDynamicChange('ingresos', ing.id, 'sueldo', e.target.value)} className="w-full sm:w-1/3 rounded-md border-gray-300 shadow-sm p-1 border text-sm" />
+              <input type="text" placeholder="Aportación" value={ing.aportacion} onChange={(e) => handleDynamicChange('ingresos', ing.id, 'aportacion', e.target.value)} className="w-full sm:w-1/3 rounded-md border-gray-300 shadow-sm p-1 border text-sm" />
               <button onClick={() => removeDynamicItem('ingresos', ing.id)} className="absolute right-0 top-1 text-red-500"><Trash2 className="w-4 h-4" /></button>
             </div>
           ))}
@@ -648,9 +794,9 @@ export default function App() {
             <button onClick={() => addDynamicItem('egresos', { concepto: '', monto: '' })} className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200">+ Egreso</button>
           </div>
           {formData.egresos.map(egr => (
-            <div key={egr.id} className="flex space-x-2 mb-2 relative pr-6">
-              <input type="text" placeholder="Concepto" value={egr.concepto} onChange={(e) => handleDynamicChange('egresos', egr.id, 'concepto', e.target.value)} className="w-1/2 rounded-md border-gray-300 shadow-sm p-1 border text-sm" />
-              <input type="number" placeholder="Monto" value={egr.monto} onChange={(e) => handleDynamicChange('egresos', egr.id, 'monto', e.target.value)} className="w-1/2 rounded-md border-gray-300 shadow-sm p-1 border text-sm" />
+            <div key={egr.id} className="flex flex-col sm:flex-row gap-2 mb-4 sm:mb-2 relative pr-8 sm:pr-6">
+              <input type="text" placeholder="Concepto" value={egr.concepto} onChange={(e) => handleDynamicChange('egresos', egr.id, 'concepto', e.target.value)} className="w-full sm:w-1/2 rounded-md border-gray-300 shadow-sm p-1 border text-sm" />
+              <input type="number" placeholder="Monto" value={egr.monto} onChange={(e) => handleDynamicChange('egresos', egr.id, 'monto', e.target.value)} className="w-full sm:w-1/2 rounded-md border-gray-300 shadow-sm p-1 border text-sm" />
               <button onClick={() => removeDynamicItem('egresos', egr.id)} className="absolute right-0 top-1 text-red-500"><Trash2 className="w-4 h-4" /></button>
             </div>
           ))}
@@ -677,7 +823,7 @@ export default function App() {
 
   const Step7 = () => (
     <div className="space-y-6 animate-fade-in">
-      <h2 className="text-2xl font-bold text-blue-800 border-b pb-2">IX. Habitación y Medio Ambiente</h2>
+      <h2 className="text-2xl font-bold text-blue-800 border-b pb-2 flex items-center gap-2">IX. Habitación y Medio Ambiente <HelpButton stepKey="step7" /></h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div><label className="block text-sm font-medium text-gray-700">Tiempo de residencia actual</label><input type="text" name="tiempoResidencia" value={formData.tiempoResidencia} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" /></div>
         <div><label className="block text-sm font-medium text-gray-700">Nivel de la zona</label><select name="nivelZona" value={formData.nivelZona} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"><option value="">Seleccione...</option><option value="Residencial">Residencial</option><option value="Media alta">Media alta</option><option value="Media">Media</option><option value="Media baja">Media baja</option><option value="Proletaria">Proletaria</option></select></div>
@@ -712,11 +858,10 @@ export default function App() {
               return (
                 <label
                   key={opt}
-                  className={`flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg border text-sm transition-colors ${
-                    checked
-                      ? 'bg-blue-100 border-blue-500 text-blue-800 font-medium'
-                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}
+                  className={`flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg border text-sm transition-colors ${checked
+                    ? 'bg-blue-100 border-blue-500 text-blue-800 font-medium'
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
                 >
                   <input
                     type="checkbox"
@@ -739,11 +884,10 @@ export default function App() {
               return (
                 <label
                   key={opt}
-                  className={`flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg border text-sm transition-colors ${
-                    checked
-                      ? 'bg-blue-100 border-blue-500 text-blue-800 font-medium'
-                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}
+                  className={`flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg border text-sm transition-colors ${checked
+                    ? 'bg-blue-100 border-blue-500 text-blue-800 font-medium'
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
                 >
                   <input
                     type="checkbox"
@@ -763,29 +907,29 @@ export default function App() {
 
   const Step8 = () => (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-between items-center border-b pb-2">
-        <h2 className="text-2xl font-bold text-blue-800">X. Referencias Personales</h2>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b pb-2">
+        <h2 className="text-2xl font-bold text-blue-800 flex items-center gap-2">X. Referencias Personales <HelpButton stepKey="step8" /></h2>
         <button onClick={() => addDynamicItem('referencias', { nombre: '', tiempo: '', telefono: '', comentarios: '' })} className="flex items-center text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"><Plus className="w-4 h-4 mr-1" /> Agregar Referencia</button>
       </div>
       <div className="space-y-4">
         {formData.referencias.map((ref) => (
-          <div key={ref.id} className="grid grid-cols-1 md:grid-cols-3 gap-2 items-end p-4 border rounded-md bg-gray-50 relative">
+          <div key={ref.id} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 items-end p-4 pr-10 border rounded-md bg-gray-50 relative">
             <div className="absolute top-2 right-2"><button onClick={() => removeDynamicItem('referencias', ref.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button></div>
             <div><label className="block text-xs font-medium text-gray-700">Nombre</label><input type="text" value={ref.nombre} onChange={(e) => handleDynamicChange('referencias', ref.id, 'nombre', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
             <div><label className="block text-xs font-medium text-gray-700">Tiempo de conocerlo</label><input type="text" value={ref.tiempo} onChange={(e) => handleDynamicChange('referencias', ref.id, 'tiempo', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
             <div><label className="block text-xs font-medium text-gray-700">Teléfono</label><input type="text" value={ref.telefono} onChange={(e) => handleDynamicChange('referencias', ref.id, 'telefono', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
-            <div className="md:col-span-3"><label className="block text-xs font-medium text-gray-700">Comentarios</label><textarea value={ref.comentarios} onChange={(e) => handleDynamicChange('referencias', ref.id, 'comentarios', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" rows="2"></textarea></div>
+            <div className="sm:col-span-2 lg:col-span-3"><label className="block text-xs font-medium text-gray-700">Comentarios</label><textarea value={ref.comentarios} onChange={(e) => handleDynamicChange('referencias', ref.id, 'comentarios', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" rows="2"></textarea></div>
           </div>
         ))}
       </div>
 
-      <div className="flex justify-between items-center border-b pb-2 mt-8">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b pb-2 mt-8">
         <h2 className="text-2xl font-bold text-blue-800">XI. Referencias Vecinales</h2>
         <button onClick={() => addDynamicItem('referenciasVecinales', { nombre: '', telefono: '', domicilio: '', conceptoAspirante: '', conceptoFamilia: '', estadoCivilVecinal: '', tieneHijos: '', sabeDondeTrabaja: '', notas: '' })} className="flex items-center text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"><Plus className="w-4 h-4 mr-1" /> Agregar Vecino</button>
       </div>
       <div className="space-y-4">
         {formData.referenciasVecinales.map((vec) => (
-          <div key={vec.id} className="grid grid-cols-1 md:grid-cols-2 gap-2 items-end p-4 border rounded-md bg-gray-50 relative">
+          <div key={vec.id} className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-end p-4 pr-10 border rounded-md bg-gray-50 relative">
             <div className="absolute top-2 right-2"><button onClick={() => removeDynamicItem('referenciasVecinales', vec.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button></div>
             <div><label className="block text-xs font-medium text-gray-700">Nombre</label><input type="text" value={vec.nombre} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'nombre', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
             <div><label className="block text-xs font-medium text-gray-700">Teléfono</label><input type="text" value={vec.telefono || ''} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'telefono', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
@@ -795,7 +939,7 @@ export default function App() {
             <div><label className="block text-xs font-medium text-gray-700">Estado civil del aspirante</label><input type="text" value={vec.estadoCivilVecinal || vec.estadoCivilHijos || ''} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'estadoCivilVecinal', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
             <div><label className="block text-xs font-medium text-gray-700">¿Tiene hijos?</label><input type="text" value={vec.tieneHijos || ''} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'tieneHijos', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
             <div><label className="block text-xs font-medium text-gray-700">¿Sabe en donde trabaja?</label><input type="text" value={vec.sabeDondeTrabaja} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'sabeDondeTrabaja', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" /></div>
-            <div className="md:col-span-2"><label className="block text-xs font-medium text-gray-700">Notas</label><textarea value={vec.notas} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'notas', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" rows="2"></textarea></div>
+            <div className="sm:col-span-2"><label className="block text-xs font-medium text-gray-700">Notas</label><textarea value={vec.notas} onChange={(e) => handleDynamicChange('referenciasVecinales', vec.id, 'notas', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" rows="2"></textarea></div>
           </div>
         ))}
       </div>
@@ -804,19 +948,19 @@ export default function App() {
 
   const Step9 = () => (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-between items-center border-b pb-2">
-        <h2 className="text-2xl font-bold text-blue-800">XII. Antecedentes Laborales</h2>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b pb-2">
+        <h2 className="text-2xl font-bold text-blue-800 flex items-center gap-2">XII. Antecedentes Laborales <HelpButton stepKey="step9" /></h2>
         <button onClick={() => addDynamicItem('empleos', { empresa: '', area: '', domicilio: '', colonia: '', cp: '', telefono: '', tipoEmpresa: '', puesto: '', periodo: '', sueldoInicial: '', sueldoFinal: '', jefe: '', puestoJefe: '', descripcionTrabajo: '', motivoSalida: '', empresaValidada: '', telefonoValidado: '', contactoValidado: '', puestoContacto: '', tiempoLaboradoValidado: '', puestoInicialValidado: '', puestoFinalValidado: '', jefeValidado: '', sueldoInicialValidado: '', sueldoFinalValidado: '', motivoSalidaValidado: '', recomendable: '', recontratable: '', calidadTrabajo: '', puntualidad: '', honradez: '', responsabilidad: '', adaptacion: '', actitudJefes: '', actitudCompaneros: '', comentariosReferencia: '' })} className="flex items-center text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"><Plus className="w-4 h-4 mr-1" /> Agregar Empleo</button>
       </div>
       <div className="space-y-8">
         {formData.empleos.map((emp, index) => (
-          <div key={emp.id} className="border-2 border-blue-200 rounded-lg p-4 bg-white relative">
+          <div key={emp.id} className="border-2 border-blue-200 rounded-lg p-4 pr-10 bg-white relative">
             <div className="absolute top-2 right-2"><button onClick={() => removeDynamicItem('empleos', emp.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-5 h-5" /></button></div>
             <h3 className="text-lg font-bold text-blue-700 mb-4">Empleo {index + 1}</h3>
-            
+
             <div className="mb-6">
               <h4 className="font-semibold text-gray-700 border-b mb-2">Datos proporcionados por candidato</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 <div><label className="block text-xs font-medium text-gray-700">Empresa</label><input type="text" value={emp.empresa} onChange={(e) => handleDynamicChange('empleos', emp.id, 'empresa', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-1 border text-sm" /></div>
                 <div><label className="block text-xs font-medium text-gray-700">Área o departamento</label><input type="text" value={emp.area} onChange={(e) => handleDynamicChange('empleos', emp.id, 'area', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-1 border text-sm" /></div>
                 <div><label className="block text-xs font-medium text-gray-700">Domicilio</label><input type="text" value={emp.domicilio} onChange={(e) => handleDynamicChange('empleos', emp.id, 'domicilio', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-1 border text-sm" /></div>
@@ -830,14 +974,14 @@ export default function App() {
                 <div><label className="block text-xs font-medium text-gray-700">Sueldo final</label><input type="text" value={emp.sueldoFinal} onChange={(e) => handleDynamicChange('empleos', emp.id, 'sueldoFinal', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-1 border text-sm" /></div>
                 <div><label className="block text-xs font-medium text-gray-700">Nombre último jefe</label><input type="text" value={emp.jefe} onChange={(e) => handleDynamicChange('empleos', emp.id, 'jefe', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-1 border text-sm" /></div>
                 <div><label className="block text-xs font-medium text-gray-700">Puesto del jefe</label><input type="text" value={emp.puestoJefe} onChange={(e) => handleDynamicChange('empleos', emp.id, 'puestoJefe', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-1 border text-sm" /></div>
-                <div className="md:col-span-3"><label className="block text-xs font-medium text-gray-700">¿Describa en qué consistía su trabajo?</label><textarea value={emp.descripcionTrabajo} onChange={(e) => handleDynamicChange('empleos', emp.id, 'descripcionTrabajo', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-1 border text-sm" rows="2"></textarea></div>
-                <div className="md:col-span-3"><label className="block text-xs font-medium text-gray-700">¿Por qué dejó el empleo?</label><textarea value={emp.motivoSalida} onChange={(e) => handleDynamicChange('empleos', emp.id, 'motivoSalida', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-1 border text-sm" rows="2"></textarea></div>
+                <div className="sm:col-span-2 lg:col-span-3"><label className="block text-xs font-medium text-gray-700">¿Describa en qué consistía su trabajo?</label><textarea value={emp.descripcionTrabajo} onChange={(e) => handleDynamicChange('empleos', emp.id, 'descripcionTrabajo', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-1 border text-sm" rows="2"></textarea></div>
+                <div className="sm:col-span-2 lg:col-span-3"><label className="block text-xs font-medium text-gray-700">¿Por qué dejó el empleo?</label><textarea value={emp.motivoSalida} onChange={(e) => handleDynamicChange('empleos', emp.id, 'motivoSalida', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-1 border text-sm" rows="2"></textarea></div>
               </div>
             </div>
 
             <div className="mb-6 bg-gray-50 p-3 rounded">
               <h4 className="font-semibold text-gray-700 border-b mb-2">Información validada con empresa</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 <div><label className="block text-xs font-medium text-gray-700">Empresa</label><input type="text" value={emp.empresaValidada} onChange={(e) => handleDynamicChange('empleos', emp.id, 'empresaValidada', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-1 border text-sm" /></div>
                 <div><label className="block text-xs font-medium text-gray-700">Teléfono</label><input type="text" value={emp.telefonoValidado} onChange={(e) => handleDynamicChange('empleos', emp.id, 'telefonoValidado', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-1 border text-sm" /></div>
                 <div><label className="block text-xs font-medium text-gray-700">Nombre del contacto</label><input type="text" value={emp.contactoValidado} onChange={(e) => handleDynamicChange('empleos', emp.id, 'contactoValidado', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-1 border text-sm" /></div>
@@ -858,9 +1002,9 @@ export default function App() {
               <h4 className="font-semibold text-gray-700 border-b mb-2">Gráfica de Actualización Laboral</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {['calidadTrabajo', 'puntualidad', 'honradez', 'responsabilidad', 'adaptacion', 'actitudJefes', 'actitudCompaneros'].map(graf => (
-                  <div key={graf} className="flex items-center justify-between bg-gray-50 p-2 rounded border">
+                  <div key={graf} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-gray-50 p-2 rounded border">
                     <span className="text-sm font-medium capitalize">{graf.replace(/([A-Z])/g, ' $1').trim()}</span>
-                    <select value={emp[graf]} onChange={(e) => handleDynamicChange('empleos', emp.id, graf, e.target.value)} className="rounded-md border-gray-300 shadow-sm p-1 border text-sm">
+                    <select value={emp[graf]} onChange={(e) => handleDynamicChange('empleos', emp.id, graf, e.target.value)} className="w-full sm:w-auto rounded-md border-gray-300 shadow-sm p-1 border text-sm">
                       <option value="">Seleccione...</option>
                       <option value="MALA">Mala</option>
                       <option value="REGULAR">Regular</option>
@@ -886,16 +1030,16 @@ export default function App() {
     <div className="space-y-6 animate-fade-in">
       <div className="text-center mb-8">
         <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-        <h2 className="text-3xl font-bold text-gray-800">¡Formulario Completado!</h2>
+        <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 flex flex-wrap items-center justify-center gap-3">¡Formulario Completado! <HelpButton stepKey="step10" /></h2>
         <p className="text-gray-600 mt-2">Por favor, complete la conclusión y suba las fotos antes de generar el PDF.</p>
       </div>
 
-      <div className="bg-blue-50 p-6 rounded-lg border border-blue-100 space-y-4">
+      <div className="bg-blue-50 p-4 sm:p-6 rounded-lg border border-blue-100 space-y-4">
         <h3 className="text-xl font-bold text-blue-800 border-b border-blue-200 pb-2">Conclusión de la Investigación</h3>
         <div><label className="block text-sm font-medium text-gray-700">Personal</label><textarea name="conclusionPersonal" value={formData.conclusionPersonal} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" rows="2"></textarea></div>
         <div><label className="block text-sm font-medium text-gray-700">Laboral</label><textarea name="conclusionLaboral" value={formData.conclusionLaboral} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" rows="2"></textarea></div>
         <div><label className="block text-sm font-medium text-gray-700">Socioeconómica</label><textarea name="conclusionSocio" value={formData.conclusionSocio} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" rows="2"></textarea></div>
-        
+
         <div className="mt-4">
           <label className="block text-sm font-bold text-gray-800">Dictamen Final: Por lo anterior, el investigado es considerado una persona...</label>
           <select name="dictamen" value={formData.dictamen} onChange={handleChange} className="mt-2 block w-full rounded-md border-gray-300 shadow-sm p-3 border font-semibold text-lg">
@@ -907,7 +1051,7 @@ export default function App() {
         </div>
       </div>
 
-      <div className="bg-gray-50 p-6 rounded-lg border space-y-4">
+      <div className="bg-gray-50 p-4 sm:p-6 rounded-lg border space-y-4">
         <h3 className="text-xl font-bold text-gray-800 border-b pb-2">Fotografías</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {['candidato', 'fachada', 'interior'].map(tipo => (
@@ -942,8 +1086,8 @@ export default function App() {
       </div>
 
       {/* FOTOS EXTRAS */}
-      <div className="bg-yellow-50 p-6 rounded-lg border border-yellow-200 space-y-4">
-        <div className="flex justify-between items-center border-b border-yellow-200 pb-2">
+      <div className="bg-yellow-50 p-4 sm:p-6 rounded-lg border border-yellow-200 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b border-yellow-200 pb-2">
           <h3 className="text-xl font-bold text-yellow-800">Fotos Extra</h3>
           <button
             onClick={addFotoExtra}
@@ -961,7 +1105,7 @@ export default function App() {
         )}
         <div className="space-y-4">
           {formData.fotosExtras.map((foto, index) => (
-            <div key={foto.id} className="flex flex-col md:flex-row items-start gap-4 p-4 border rounded-md bg-white relative">
+            <div key={foto.id} className="flex flex-col md:flex-row items-start gap-4 p-4 pr-24 border rounded-md bg-white relative">
               <div className="absolute top-2 right-2 flex items-center gap-1">
                 <button
                   onClick={() => moveFotoExtra(index, -1)}
@@ -981,7 +1125,7 @@ export default function App() {
                 </button>
                 <button onClick={() => removeFotoExtra(foto.id)} className="text-red-500 hover:text-red-700 p-0.5"><Trash2 className="w-4 h-4" /></button>
               </div>
-              <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50 min-w-[150px]">
+              <div className="w-full sm:w-auto sm:min-w-40 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
                 <label className="cursor-pointer flex flex-col items-center">
                   <Upload className="w-8 h-8 text-gray-400 mb-2" />
                   <span className="text-xs font-medium text-gray-600">Foto Extra {index + 1}</span>
@@ -1005,8 +1149,8 @@ export default function App() {
       </div>
 
       {/* DOCUMENTOS EXTRAS */}
-      <div className="bg-purple-50 p-6 rounded-lg border border-purple-200 space-y-4">
-        <div className="flex justify-between items-center border-b border-purple-200 pb-2">
+      <div className="bg-purple-50 p-4 sm:p-6 rounded-lg border border-purple-200 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b border-purple-200 pb-2">
           <h3 className="text-xl font-bold text-purple-800">Documentos Extra (PDF)</h3>
           <button
             onClick={addDocExtra}
@@ -1024,7 +1168,7 @@ export default function App() {
         )}
         <div className="space-y-3">
           {formData.documentosExtras.map((doc, index) => (
-            <div key={doc.id} className="flex items-center gap-4 p-3 border rounded-md bg-white relative">
+            <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 pr-24 border rounded-md bg-white relative">
               <div className="absolute top-2 right-2 flex items-center gap-1">
                 <button
                   onClick={() => moveDocExtra(index, -1)}
@@ -1044,13 +1188,13 @@ export default function App() {
                 </button>
                 <button onClick={() => removeDocExtra(doc.id)} className="text-red-500 hover:text-red-700 p-0.5"><Trash2 className="w-4 h-4" /></button>
               </div>
-              <label className="cursor-pointer flex items-center gap-2 border-2 border-dashed border-gray-300 rounded-lg px-4 py-2 bg-gray-50 hover:bg-gray-100">
+              <label className="w-full sm:w-auto cursor-pointer flex items-center gap-2 border-2 border-dashed border-gray-300 rounded-lg px-4 py-2 bg-gray-50 hover:bg-gray-100">
                 <FilePlus2 className="w-5 h-5 text-gray-400" />
                 <span className="text-xs font-medium text-gray-600">Seleccionar PDF</span>
                 <input type="file" accept=".pdf,application/pdf" className="hidden" onChange={(e) => handleDocExtraUpload(doc.id, e)} />
               </label>
               {doc.nombre && (
-                <span className="text-sm text-gray-700 truncate max-w-xs">📄 {doc.nombre}</span>
+                <span className="w-full sm:w-auto text-sm text-gray-700 break-all sm:break-normal sm:truncate sm:max-w-xs">📄 {doc.nombre}</span>
               )}
             </div>
           ))}
@@ -1077,19 +1221,17 @@ export default function App() {
         <button
           type="button"
           onClick={() => setFormData(prev => ({ ...prev, incluirPortada: !prev.incluirPortada }))}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg border-2 text-sm font-medium transition-all duration-200 ${
-            formData.incluirPortada
-              ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
-              : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'
-          }`}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg border-2 text-sm font-medium transition-all duration-200 ${formData.incluirPortada
+            ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
+            : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'
+            }`}
         >
           <BookOpen className={`w-4 h-4 ${formData.incluirPortada ? 'text-blue-500' : 'text-gray-400'}`} />
           <span>Portada</span>
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-            formData.incluirPortada
-              ? 'bg-blue-500 text-white'
-              : 'bg-gray-200 text-gray-500'
-          }`}>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${formData.incluirPortada
+            ? 'bg-blue-500 text-white'
+            : 'bg-gray-200 text-gray-500'
+            }`}>
             {formData.incluirPortada ? 'SÍ' : 'NO'}
           </span>
         </button>
@@ -1159,7 +1301,7 @@ export default function App() {
     const v = variantConfig[modal.variant] || variantConfig.info;
 
     return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={() => setModal(null)}>
+      <div className="fixed inset-0 z-60 flex items-center justify-center p-4" onClick={() => setModal(null)}>
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in"></div>
         <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-fade-in" onClick={(e) => e.stopPropagation()}>
           {/* Franja superior de color */}
@@ -1226,11 +1368,10 @@ export default function App() {
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-xl p-8 sm:p-10 text-center cursor-pointer transition-all duration-200 ${
-            isDragging
-              ? 'border-blue-500 bg-blue-50 scale-[1.02]'
-              : 'border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50/50'
-          }`}
+          className={`border-2 border-dashed rounded-xl p-8 sm:p-10 text-center cursor-pointer transition-all duration-200 ${isDragging
+            ? 'border-blue-500 bg-blue-50 scale-[1.02]'
+            : 'border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50/50'
+            }`}
         >
           <FileUp className={`w-12 h-12 mx-auto mb-3 transition-colors ${isDragging ? 'text-blue-500' : 'text-gray-400'}`} />
           <p className={`text-base font-semibold mb-1 ${isDragging ? 'text-blue-600' : 'text-gray-700'}`}>
@@ -1267,75 +1408,17 @@ export default function App() {
     </div>
   );
 
-  // --- PANTALLA DE BIENVENIDA ---
+  // --- DASHBOARD (reemplaza la pantalla de bienvenida) ---
   if (showWelcome) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4 py-8 font-sans">
-        <div className="max-w-2xl w-full">
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-            {/* Header decorativo */}
-            <div className="bg-blue-800 px-6 py-8 text-center">
-              <img src={nexpleaLogo} alt="Nexplea" className="h-16 mx-auto mb-4 object-contain" />
-              <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">Bienvenido</h1>
-              <p className="text-blue-200 text-lg">Generador Oficial de Estudio Socioeconómico</p>
-            </div>
-
-            {/* Contenido */}
-            <div className="p-6 sm:p-10">
-              <p className="text-gray-600 text-center text-base sm:text-lg leading-relaxed mb-8">
-                Genera <strong>Estudios Socioeconómicos en formato PDF</strong> de manera profesional.
-                Llena un formulario paso a paso y al final obtén un documento listo para entregar con
-                toda la información del candidato.
-              </p>
-
-              <div className="border-t border-gray-200 pt-8">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Botón Iniciar Nuevo */}
-                  <button
-                    onClick={() => {
-                      setFormData({...initialData, fecha: new Date().toISOString().split('T')[0]});
-                      setCurrentStep(1);
-                      setShowWelcome(false);
-                    }}
-                    className="group flex flex-col items-center p-6 sm:p-8 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5"
-                  >
-                    <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                      <FileText className="w-7 h-7" />
-                    </div>
-                    <span className="text-lg font-bold mb-1">Iniciar Nuevo Estudio</span>
-                    <span className="text-blue-200 text-sm text-center">Comienza un formulario desde cero</span>
-                  </button>
-
-                  {/* Botón Cargar Progreso */}
-                  <button
-                    onClick={() => { setLoadError(''); setShowLoadModal(true); }}
-                    className="group flex flex-col items-center p-6 sm:p-8 bg-white border-2 border-blue-200 hover:border-blue-400 text-blue-700 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5"
-                  >
-                    <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                      <FolderOpen className="w-7 h-7 text-blue-600" />
-                    </div>
-                    <span className="text-lg font-bold mb-1">Cargar Progreso</span>
-                    <span className="text-blue-400 text-sm text-center">Continúa con un archivo guardado</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Info adicional */}
-              <div className="mt-8 flex items-start gap-3 bg-gray-50 rounded-lg p-4">
-                <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 shrink-0" />
-                <p className="text-sm text-gray-500">
-                  Tus datos son privados. Solo existen en tu navegador y en el archivo que guardes.
-                  El servidor no almacena información.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Modal de carga */}
-        {showLoadModal && LoadModal()}
+      <>
+        <Dashboard
+          onNewStudy={handleNewStudy}
+          onLoadStudy={handleLoadStudy}
+          onExportStudy={handleExportStudy}
+        />
         {modal && CustomModal()}
-      </div>
+      </>
     );
   }
 
@@ -1343,24 +1426,116 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
-        
+
         {/* HEADER */}
-        <div className="bg-blue-800 px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <img src={nexpleaLogo} alt="Nexplea" className="h-10 object-contain" />
-            <h1 className="text-2xl font-bold text-white flex items-center"><FileText className="mr-2" /> Generador ESE</h1>
+        <div className="bg-brand-primary px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="h-8 sm:h-12 flex items-center justify-center overflow-hidden">
+              <img src={nexpleaLogo} alt="Nexplea" className="h-full w-auto object-contain brightness-0 invert drop-shadow-sm" />
+            </div>
+            <h1 className="text-lg sm:text-2xl font-bold text-white flex items-center"><FileText className="mr-2 text-brand-secondary hidden sm:block" /> <span className="hidden sm:inline">Generador</span> ESE</h1>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-blue-100 text-sm">Paso {currentStep} de {totalSteps}</span>
-            <button onClick={goHome} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-white text-blue-800 border border-blue-200 hover:bg-blue-50 hover:text-blue-900 shadow-sm transition-colors" title="Volver al inicio">
-              <Home className="w-4 h-4" /> Inicio
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end">
+            {/* Cloud save indicator */}
+            <div className="hidden sm:flex items-center gap-2 text-sm">
+              {cloudSaveStatus === 'pending' && (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-400/20 text-yellow-200 text-xs font-medium" style={{ animation: 'saveIndicatorIn 0.3s ease' }}>
+                  <span className="w-2 h-2 rounded-full bg-yellow-300 animate-pulse"></span> Editando...
+                </span>
+              )}
+              {cloudSaveStatus === 'saving' && (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-secondary/20 text-brand-secondary text-xs font-medium" style={{ animation: 'saveIndicatorIn 0.3s ease' }}>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Guardando...
+                </span>
+              )}
+              {cloudSaveStatus === 'saved' && (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-accent/20 text-brand-accent text-xs font-medium" style={{ animation: 'saveIndicatorIn 0.3s ease' }}>
+                  <Cloud className="w-3.5 h-3.5" /> ¡Guardado!
+                </span>
+              )}
+              {cloudSaveStatus === 'error' && (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-400/20 text-red-300 text-xs font-medium" style={{ animation: 'saveIndicatorIn 0.3s ease' }}>
+                  <CloudOff className="w-3.5 h-3.5" /> Error al guardar
+                </span>
+              )}
+            </div>
+            {/* Mobile-only cloud status icon */}
+            <div className="flex sm:hidden items-center">
+              {cloudSaveStatus === 'saving' && <Loader2 className="w-4 h-4 text-brand-secondary animate-spin" />}
+              {cloudSaveStatus === 'saved' && <Cloud className="w-4 h-4 text-brand-accent" />}
+              {cloudSaveStatus === 'error' && <CloudOff className="w-4 h-4 text-red-300" />}
+              {cloudSaveStatus === 'pending' && <span className="w-2 h-2 rounded-full bg-yellow-300 animate-pulse"></span>}
+            </div>
+            {/* Share code - prominent badge */}
+            {cloudCode && (
+              <button
+                onClick={() => { navigator.clipboard.writeText(cloudCode); showToast('¡Código copiado al portapapeles! 📋'); }}
+                className="hidden sm:flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-bold bg-brand-secondary text-brand-primary hover:bg-brand-secondary/90 shadow-md transition-all hover:scale-105 cursor-pointer"
+                title="Clic para copiar el código"
+              >
+                📋 <span className="hidden sm:inline">Código: </span>{cloudCode}
+              </button>
+            )}
+            <span className="hidden sm:inline-flex text-white text-xs sm:text-sm font-medium bg-brand-navy px-2 sm:px-3 py-1 rounded-full whitespace-nowrap">{currentStep}/{totalSteps}</span>
+            <button onClick={goHome} className="group flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-white text-brand-navy border border-brand-secondary hover:bg-brand-secondary hover:text-white shadow-sm transition-colors" title="Volver al Inicio">
+              <Home className="w-4 h-4 text-brand-primary group-hover:text-white transition-colors" /><span className="hidden sm:inline"> Inicio</span>
             </button>
           </div>
         </div>
 
+        {/* HEADER STICKY MOBILE */}
+        <div className="sm:hidden sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-gray-200 px-4 py-3 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-blue-700">Paso {currentStep} de {totalSteps} · {stepProgress}%</p>
+              <h2 className="text-sm font-bold text-gray-900 truncate">{stepTitles[currentStep]}</h2>
+            </div>
+            <button
+              onClick={() => setShowProgressMenu(prev => !prev)}
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-green-700 bg-green-50 border border-green-200"
+              title="Guardar / Cargar Progreso"
+            >
+              <Save className="w-4 h-4" /> Progreso
+            </button>
+          </div>
+          <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
+            <div className="bg-blue-600 h-1.5 transition-all duration-300" style={{ width: `${(currentStep / totalSteps) * 100}%` }}></div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setCurrentStep(prev => Math.max(1, prev - 1))}
+              disabled={currentStep === 1}
+              className="h-11 flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white text-sm font-semibold text-gray-700 disabled:opacity-50"
+            >
+              <ChevronLeft className="w-4 h-4" /> Atrás
+            </button>
+            <button
+              onClick={() => setCurrentStep(prev => Math.min(totalSteps, prev + 1))}
+              disabled={currentStep === totalSteps}
+              className="h-11 flex items-center justify-center gap-1.5 rounded-lg border border-transparent bg-blue-600 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              Siguiente <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+          {showProgressMenu && (
+            <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm animate-fade-in">
+              <p className="text-xs font-semibold text-gray-800 mb-1">Progreso del formulario</p>
+              <p className="text-xs text-gray-500 mb-2">Guardar o cargar un archivo de avance (.json).</p>
+              <div className="space-y-2">
+                <button onClick={() => { exportProgress(); setShowProgressMenu(false); }} className="w-full flex items-center px-3 py-2 text-sm rounded-md text-green-700 bg-green-50 hover:bg-green-100 transition-colors">
+                  <Download className="w-4 h-4 mr-2" /> Guardar Progreso
+                </button>
+                <button onClick={() => { importProgress(); setShowProgressMenu(false); }} className="w-full flex items-center px-3 py-2 text-sm rounded-md text-yellow-700 bg-yellow-50 hover:bg-yellow-100 transition-colors">
+                  <Upload className="w-4 h-4 mr-2" /> Cargar Progreso
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* BARRA DE PROGRESO */}
-        <div className="w-full bg-gray-200 h-2">
-          <div className="bg-blue-500 h-2 transition-all duration-300" style={{ width: `${(currentStep / totalSteps) * 100}%` }}></div>
+        <div className="hidden sm:block w-full bg-brand-navy h-2">
+          <div className="bg-brand-secondary h-2 transition-all duration-300" style={{ width: `${(currentStep / totalSteps) * 100}%` }}></div>
         </div>
 
         {/* CONTENIDO DEL FORMULARIO */}
@@ -1377,7 +1552,7 @@ export default function App() {
           {currentStep === 10 && Step10()}
 
           {/* NAVEGACIÓN */}
-          <div className="mt-10 flex justify-between border-t pt-6">
+          <div className="mt-10 hidden sm:flex justify-between border-t pt-6">
             <button onClick={() => setCurrentStep(prev => Math.max(1, prev - 1))} disabled={currentStep === 1} className="flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50">
               <ChevronLeft className="w-4 h-4 mr-1" /> Anterior
             </button>
@@ -1393,7 +1568,7 @@ export default function App() {
       </div>
 
       {/* BOTÓN FLOTANTE DE PROGRESO */}
-      <div className="fixed bottom-6 right-6 z-50 print:hidden">
+      <div className="hidden sm:block fixed bottom-6 right-6 z-50 print:hidden">
         {showProgressMenu && (
           <div className="absolute bottom-16 right-0 bg-white rounded-lg shadow-2xl border border-gray-200 p-4 w-64 animate-fade-in">
             <p className="text-sm font-semibold text-gray-800 mb-3">Progreso del formulario</p>
@@ -1416,6 +1591,33 @@ export default function App() {
       {/* Modal de carga (disponible también desde el formulario) */}
       {showLoadModal && LoadModal()}
       {modal && CustomModal()}
+
+      {/* Toast notification */}
+      {toast && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-9999 animate-bounce-in">
+          <div className={`flex items-center gap-2.5 px-5 py-3 rounded-2xl shadow-2xl text-sm font-semibold backdrop-blur-sm border ${toast.type === 'success' ? 'bg-green-500/90 text-white border-green-400/50' :
+            toast.type === 'error' ? 'bg-red-500/90 text-white border-red-400/50' :
+              'bg-blue-500/90 text-white border-blue-400/50'
+            }`}
+            style={{
+              animation: 'toastSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}>
+            <span className="text-lg">{toast.type === 'success' ? '✅' : toast.type === 'error' ? '❌' : 'ℹ️'}</span>
+            {toast.message}
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes toastSlideIn {
+          0% { opacity: 0; transform: translateY(-20px) scale(0.95); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes saveIndicatorIn {
+          0% { opacity: 0; transform: scale(0.8); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
     </div>
   );
 }
