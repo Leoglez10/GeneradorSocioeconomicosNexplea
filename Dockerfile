@@ -55,7 +55,11 @@ RUN apt-get update && apt-get install -y \
     libxdamage1 \
     libxrandr2 \
     libxss1 \
-    --no-install-recommends \
+    libasound2 \
+    libpangocairo-1.0-0 \
+    libxshmfence1 \
+    wget \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Decirle a Puppeteer que use el Chromium del sistema (no descargue otro)
