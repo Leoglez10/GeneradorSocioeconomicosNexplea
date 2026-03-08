@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, googleProvider } from './firebaseConfig';
-import { onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 
 const AuthContext = createContext(null);
 
@@ -24,10 +24,6 @@ export function AuthProvider({ children }) {
         try {
             await signInWithPopup(auth, googleProvider);
         } catch (err) {
-            if (err?.code === 'auth/popup-blocked') {
-                await signInWithRedirect(auth, googleProvider);
-                return;
-            }
             console.error('Login failed:', err);
             throw err;
         }

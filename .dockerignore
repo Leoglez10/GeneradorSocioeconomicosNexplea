@@ -1,3 +1,7 @@
+# Environment
+.env
+# .env.local and .env.production should not be ignored if we want to build locally with them
+
 # Dependencias
 node_modules/
 WEB/app/node_modules/
