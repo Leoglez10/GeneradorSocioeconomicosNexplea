@@ -230,7 +230,7 @@ const helpContent = {
     }
 };
 
-export default function HelpButton({ stepKey, className = "" }) {
+export default function HelpButton({ stepKey, className = "", id }) {
     const [isOpen, setIsOpen] = useState(false);
     const content = helpContent[stepKey];
 
@@ -258,6 +258,7 @@ export default function HelpButton({ stepKey, className = "" }) {
         <>
             {/* Help Button */}
             <button
+                id={id}
                 onClick={() => setIsOpen(true)}
                 className={`group flex items-center justify-center h-9 min-w-9 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full text-white cursor-pointer shadow-sm border border-white/20 hover:shadow-md transition-all duration-300 overflow-hidden px-2 hover:px-3 focus:outline-none ${className}`}
                 title="Ayuda sobre esta sección"

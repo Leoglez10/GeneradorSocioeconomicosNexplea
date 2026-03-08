@@ -7,6 +7,7 @@ import { useAuth } from './AuthProvider';
 import LoginScreen from './LoginScreen';
 import Dashboard from './Dashboard';
 import { saveStudy, loadStudyById, loadStudyByCode, getUserStudies } from './cloudSaveService';
+import { startFormTour, startFinalTour } from './utils/formTour';
 
 // --- ESTADO INICIAL ---
 const initialData = {
@@ -628,7 +629,7 @@ export default function App() {
   // --- COMPONENTES DE PASOS ---
   const Step1 = () => (
     <div className="space-y-6 animate-fade-in">
-      <h2 className="text-2xl font-bold text-blue-800 border-b pb-2 flex items-center gap-2">I. Datos Generales <HelpButton stepKey="step1" /></h2>
+      <h2 className="text-2xl font-bold text-blue-800 border-b pb-2 flex items-center gap-2">I. Datos Generales <HelpButton stepKey="step1" id="btn-ayuda-seccion" /></h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div><label className="block text-sm font-medium text-gray-700">Fecha</label><input type="date" name="fecha" value={formData.fecha} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" /></div>
         <div><label className="block text-sm font-medium text-gray-700">Puesto que solicita</label><input type="text" name="puesto" value={formData.puesto} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" /></div>
@@ -1034,7 +1035,7 @@ export default function App() {
         <p className="text-gray-600 mt-2">Por favor, complete la conclusión y suba las fotos antes de generar el PDF.</p>
       </div>
 
-      <div className="bg-blue-50 p-4 sm:p-6 rounded-lg border border-blue-100 space-y-4">
+      <div id="conclusion-section" className="bg-blue-50 p-4 sm:p-6 rounded-lg border border-blue-100 space-y-4">
         <h3 className="text-xl font-bold text-blue-800 border-b border-blue-200 pb-2">Conclusión de la Investigación</h3>
         <div><label className="block text-sm font-medium text-gray-700">Personal</label><textarea name="conclusionPersonal" value={formData.conclusionPersonal} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" rows="2"></textarea></div>
         <div><label className="block text-sm font-medium text-gray-700">Laboral</label><textarea name="conclusionLaboral" value={formData.conclusionLaboral} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" rows="2"></textarea></div>
@@ -1051,7 +1052,7 @@ export default function App() {
         </div>
       </div>
 
-      <div className="bg-gray-50 p-4 sm:p-6 rounded-lg border space-y-4">
+      <div id="fotos-section" className="bg-gray-50 p-4 sm:p-6 rounded-lg border space-y-4">
         <h3 className="text-xl font-bold text-gray-800 border-b pb-2">Fotografías</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {['candidato', 'fachada', 'interior'].map(tipo => (
@@ -1086,7 +1087,7 @@ export default function App() {
       </div>
 
       {/* FOTOS EXTRAS */}
-      <div className="bg-yellow-50 p-4 sm:p-6 rounded-lg border border-yellow-200 space-y-4">
+      <div id="fotos-extra-section" className="bg-yellow-50 p-4 sm:p-6 rounded-lg border border-yellow-200 space-y-4">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b border-yellow-200 pb-2">
           <h3 className="text-xl font-bold text-yellow-800">Fotos Extra</h3>
           <button
@@ -1149,7 +1150,7 @@ export default function App() {
       </div>
 
       {/* DOCUMENTOS EXTRAS */}
-      <div className="bg-purple-50 p-4 sm:p-6 rounded-lg border border-purple-200 space-y-4">
+      <div id="docs-extra-section" className="bg-purple-50 p-4 sm:p-6 rounded-lg border border-purple-200 space-y-4">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b border-purple-200 pb-2">
           <h3 className="text-xl font-bold text-purple-800">Documentos Extra (PDF)</h3>
           <button
@@ -1217,7 +1218,7 @@ export default function App() {
         )}
       </div>
 
-      <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mt-8">
+      <div id="generar-pdf-section" className="flex flex-col sm:flex-row justify-center items-center gap-4 mt-8">
         <button
           type="button"
           onClick={() => setFormData(prev => ({ ...prev, incluirPortada: !prev.incluirPortada }))}
@@ -1477,6 +1478,9 @@ export default function App() {
               </button>
             )}
             <span className="hidden sm:inline-flex text-white text-xs sm:text-sm font-medium bg-brand-navy px-2 sm:px-3 py-1 rounded-full whitespace-nowrap">{currentStep}/{totalSteps}</span>
+            <button onClick={() => currentStep === 10 ? startFinalTour() : startFormTour()} className="group flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-white text-brand-navy border border-brand-secondary hover:bg-brand-secondary hover:text-white shadow-sm transition-colors" title="Iniciar Tour de Ayuda">
+              <BookOpen className="w-4 h-4 text-brand-primary group-hover:text-white transition-colors" /><span className="hidden sm:inline"> Tour</span>
+            </button>
             <button onClick={goHome} className="group flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-white text-brand-navy border border-brand-secondary hover:bg-brand-secondary hover:text-white shadow-sm transition-colors" title="Volver al Inicio">
               <Home className="w-4 h-4 text-brand-primary group-hover:text-white transition-colors" /><span className="hidden sm:inline"> Inicio</span>
             </button>
@@ -1491,6 +1495,7 @@ export default function App() {
               <h2 className="text-sm font-bold text-gray-900 truncate">{stepTitles[currentStep]}</h2>
             </div>
             <button
+              id="btn-guardar-progreso-mobile"
               onClick={() => setShowProgressMenu(prev => !prev)}
               className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-green-700 bg-green-50 border border-green-200"
               title="Guardar / Cargar Progreso"
@@ -1498,10 +1503,10 @@ export default function App() {
               <Save className="w-4 h-4" /> Progreso
             </button>
           </div>
-          <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
+          <div id="barra-progreso-mobile" className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
             <div className="bg-blue-600 h-1.5 transition-all duration-300" style={{ width: `${(currentStep / totalSteps) * 100}%` }}></div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div id="navegacion-form-mobile" className="grid grid-cols-2 gap-2">
             <button
               onClick={() => setCurrentStep(prev => Math.max(1, prev - 1))}
               disabled={currentStep === 1}
@@ -1547,7 +1552,7 @@ export default function App() {
         </div>
 
         {/* BARRA DE PROGRESO */}
-        <div className="hidden sm:block w-full bg-brand-navy h-2">
+        <div id="barra-progreso" className="hidden sm:block w-full bg-brand-navy h-2">
           <div className="bg-brand-secondary h-2 transition-all duration-300" style={{ width: `${(currentStep / totalSteps) * 100}%` }}></div>
         </div>
 
@@ -1565,7 +1570,7 @@ export default function App() {
           {currentStep === 10 && Step10()}
 
           {/* NAVEGACIÓN */}
-          <div className="mt-10 hidden sm:flex justify-between border-t pt-6">
+          <div id="navegacion-form" className="mt-10 hidden sm:flex justify-between border-t pt-6">
             <button onClick={() => setCurrentStep(prev => Math.max(1, prev - 1))} disabled={currentStep === 1} className="flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50">
               <ChevronLeft className="w-4 h-4 mr-1" /> Anterior
             </button>
@@ -1609,7 +1614,7 @@ export default function App() {
             </div>
           </div>
         )}
-        <button onClick={() => setShowProgressMenu(prev => !prev)} className={`flex items-center justify-center w-14 h-14 rounded-full shadow-lg transition-all duration-200 ${showProgressMenu ? 'bg-gray-700 hover:bg-gray-800' : 'bg-green-600 hover:bg-green-700'} text-white`} title="Guardar / Cargar Progreso">
+        <button id="btn-guardar-progreso" onClick={() => setShowProgressMenu(prev => !prev)} className={`flex items-center justify-center w-14 h-14 rounded-full shadow-lg transition-all duration-200 ${showProgressMenu ? 'bg-gray-700 hover:bg-gray-800' : 'bg-green-600 hover:bg-green-700'} text-white`} title="Guardar / Cargar Progreso">
           <Save className="w-6 h-6" />
         </button>
       </div>

@@ -3,7 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
     match /estudios/{docId} {
       allow create: if request.auth != null;
-      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null;
       allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
   }

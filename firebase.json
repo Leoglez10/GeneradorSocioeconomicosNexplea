@@ -12,5 +12,8 @@
         "supportEmail": "leoeligr10@gmail.com"
       }
     }
+  },
+  "storage": {
+    "rules": "storage.rules"
   }
 }

@@ -1,0 +1,132 @@
+.driver-popover {
+    border-radius: 20px !important;
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25) !important;
+    border: 1px solid #e2e8f0 !important;
+    padding: 24px !important;
+    font-family: 'Inter', system-ui, sans-serif !important;
+    max-width: 350px !important;
+}
+
+.driver-popover-title {
+    font-size: 1.25rem !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    /* brand-navy */
+    margin-bottom: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+.driver-popover-description {
+    font-size: 0.95rem !important;
+    color: #475569 !important;
+    line-height: 1.6 !important;
+    margin-bottom: 20px !important;
+}
+
+.driver-popover-footer {
+    margin-top: 20px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+}
+
+.driver-popover-progress-text {
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    color: #94a3b8 !important;
+}
+
+.driver-popover-navigation-btns {
+    display: flex !important;
+    gap: 8px !important;
+}
+
+.driver-popover-prev-btn,
+.driver-popover-next-btn {
+    border-radius: 12px !important;
+    padding: 8px 16px !important;
+    font-weight: 600 !important;
+    font-size: 0.9rem !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    text-shadow: none !important;
+}
+
+.driver-popover-prev-btn {
+    background-color: #f1f5f9 !important;
+    color: #475569 !important;
+    border: border-transparent !important;
+}
+
+.driver-popover-prev-btn:hover {
+    background-color: #e2e8f0 !important;
+    color: #0f172a !important;
+}
+
+.driver-popover-next-btn {
+    background-color: #033C92 !important;
+    /* brand-primary */
+    color: #ffffff !important;
+    border: border-transparent !important;
+    box-shadow: 0 4px 6px -1px rgba(3, 60, 146, 0.2) !important;
+}
+
+.driver-popover-next-btn:hover {
+    background-color: #022b6b !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 8px -1px rgba(3, 60, 146, 0.3) !important;
+}
+
+.driver-popover-close-btn {
+    color: #94a3b8 !important;
+    transition: color 0.2s !important;
+}
+
+.driver-popover-close-btn:hover {
+    color: #ef4444 !important;
+}
+
+/* Responsive adjustments for mobile */
+@media (max-width: 640px) {
+    .driver-popover {
+        max-width: calc(100vw - 32px) !important;
+        padding: 16px !important;
+        border-radius: 16px !important;
+        margin: 16px !important;
+    }
+
+    .driver-popover-title {
+        font-size: 1.1rem !important;
+    }
+
+    .driver-popover-description {
+        font-size: 0.9rem !important;
+        margin-bottom: 16px !important;
+    }
+
+    .driver-popover-footer {
+        margin-top: 16px !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+    }
+
+    .driver-popover-progress-text {
+        width: 100% !important;
+        text-align: center !important;
+        margin-bottom: 8px !important;
+    }
+
+    .driver-popover-navigation-btns {
+        width: 100% !important;
+        justify-content: space-between !important;
+        flex-wrap: wrap !important;
+    }
+
+    .driver-popover-prev-btn,
+    .driver-popover-next-btn {
+        flex: 1 !important;
+        text-align: center !important;
+    }
+}

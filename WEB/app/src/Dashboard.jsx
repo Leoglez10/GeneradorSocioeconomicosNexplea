@@ -5,6 +5,7 @@ import { FileText, Plus, Trash2, Search, LogOut, Copy, Check, ChevronRight, Aler
 import { motion, AnimatePresence } from 'framer-motion';
 import nexpleaLogo from './assets/nexplea2.png';
 import HelpButton from './HelpButton';
+import { startDashboardTour } from './utils/tour';
 
 export default function Dashboard({ onNewStudy, onLoadStudy, onExportStudy }) {
     const { user, logout } = useAuth();
@@ -126,10 +127,23 @@ export default function Dashboard({ onNewStudy, onLoadStudy, onExportStudy }) {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 sm:gap-4">
+                        <button
+                            onClick={() => startDashboardTour()}
+                            className="group flex items-center justify-center bg-purple-500/20 hover:bg-purple-500 text-purple-50 hover:text-white rounded-full transition-all duration-300 border border-purple-400/30 hover:border-purple-500 overflow-hidden h-9 px-2 hover:px-3 focus:outline-none"
+                            title="Iniciar recorrido guiado"
+                            id="boton-tour"
+                        >
+                            <span className="flex-shrink-0 text-xl leading-none group-hover:scale-110 transition-transform duration-300">🗺️</span>
+                            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover:max-w-[120px] group-hover:opacity-100 group-hover:ml-1.5 font-bold text-[13px] transition-all duration-300 ease-in-out">
+                                Ver Tour
+                            </span>
+                        </button>
+
                         <button
                             onClick={() => setShowBugModal(true)}
-                            className="group hidden sm:flex items-center justify-center bg-orange-500/20 hover:bg-orange-500 text-orange-50 hover:text-white rounded-full transition-all duration-300 border border-orange-400/30 hover:border-orange-500 overflow-hidden h-9 px-2 hover:px-3 focus:outline-none"
+                            id="btn-reportar-bug"
+                            className="group flex items-center justify-center bg-orange-500/20 hover:bg-orange-500 text-orange-50 hover:text-white rounded-full transition-all duration-300 border border-orange-400/30 hover:border-orange-500 overflow-hidden h-9 px-2 hover:px-3 focus:outline-none"
                             title="Reportar problema con la app"
                         >
                             <Bug className="w-5 h-5 flex-shrink-0 group-hover:scale-110 transition-transform duration-300" />
@@ -137,7 +151,7 @@ export default function Dashboard({ onNewStudy, onLoadStudy, onExportStudy }) {
                                 Reportar app
                             </span>
                         </button>
-                        <HelpButton stepKey="dashboard" className="hidden sm:flex" />
+                        <HelpButton stepKey="dashboard" className="flex" />
 
                         <div className="h-8 w-px bg-white/20 hidden sm:block"></div>
 
@@ -155,6 +169,7 @@ export default function Dashboard({ onNewStudy, onLoadStudy, onExportStudy }) {
                             )}
                             <button
                                 onClick={logout}
+                                id="btn-cerrar-sesion"
                                 className="ml-2 p-2 rounded-lg text-brand-secondary hover:text-white hover:bg-white/10 transition-colors"
                                 title="Cerrar sesión"
                             >
@@ -184,6 +199,7 @@ export default function Dashboard({ onNewStudy, onLoadStudy, onExportStudy }) {
                         <button
                             onClick={() => { setShowCodeModal(true); setCode(''); setCodeError(''); }}
                             className="w-full sm:w-auto min-h-11 flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-white border border-brand-secondary hover:border-brand-primary text-brand-navy text-sm font-semibold rounded-xl transition-all duration-200 shadow-sm"
+                            id="boton-recibir-progreso"
                         >
                             <Search className="w-4 h-4 text-brand-primary" />
                             <span className="sm:hidden">Recibir por Código</span>
@@ -191,6 +207,7 @@ export default function Dashboard({ onNewStudy, onLoadStudy, onExportStudy }) {
                         </button>
                         <button
                             onClick={onNewStudy}
+                            id="btn-crear-estudio"
                             className="flex items-center justify-center gap-2 px-6 py-2.5 bg-brand-primary hover:bg-brand-navy text-white font-medium rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
                         >
                             <Plus className="w-5 h-5 text-brand-secondary" />
@@ -203,7 +220,7 @@ export default function Dashboard({ onNewStudy, onLoadStudy, onExportStudy }) {
                 </p>
 
                 {/* Dashboard Grid & List */}
-                <div className="space-y-4">
+                <div className="space-y-4" id="seccion-estudios">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <h3 className="text-lg font-semibold text-brand-navy">Estudios Recientes</h3>
@@ -324,6 +341,7 @@ export default function Dashboard({ onNewStudy, onLoadStudy, onExportStudy }) {
                                                         onClick={(e) => { e.stopPropagation(); handleCopyCode(study.code); }}
                                                         className="w-full sm:w-auto min-h-10 flex items-center justify-between sm:justify-start gap-2 px-3 py-2 text-xs rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors font-medium shadow-sm"
                                                         title="Copiar código para compartir progreso"
+                                                        id="boton-codigo-compartir"
                                                     >
                                                         <span className="inline-flex items-center gap-1.5">
                                                             {copiedCode === study.code ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
