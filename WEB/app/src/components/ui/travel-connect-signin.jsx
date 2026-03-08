@@ -151,6 +151,21 @@ export default function SignInCard() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
+    const getFirebaseErrorMessage = (err) => {
+        switch (err?.code) {
+            case 'auth/unauthorized-domain':
+                return 'Dominio no autorizado en Firebase Auth. Agrega tu dominio de producción en Authentication > Settings > Authorized domains.';
+            case 'auth/popup-blocked':
+                return 'El navegador bloqueó la ventana emergente. Permite popups para este sitio e intenta de nuevo.';
+            case 'auth/operation-not-allowed':
+                return 'Google Sign-In no está habilitado en Firebase Authentication.';
+            case 'auth/network-request-failed':
+                return 'Error de red al conectar con Firebase. Verifica conexión, SSL y bloqueadores de contenido.';
+            default:
+                return `Error al iniciar sesión (${err?.code || 'desconocido'}). Intenta de nuevo.`;
+        }
+    };
+
     const handleLogin = async () => {
         setLoading(true);
         setError('');
@@ -158,7 +173,7 @@ export default function SignInCard() {
             await loginWithGoogle();
         } catch (err) {
             if (err.code !== 'auth/popup-closed-by-user') {
-                setError('Error al iniciar sesión. Intenta de nuevo.');
+                setError(getFirebaseErrorMessage(err));
             }
             setLoading(false);
         }

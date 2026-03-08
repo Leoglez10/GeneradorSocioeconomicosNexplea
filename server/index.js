@@ -22,7 +22,9 @@ const allowedOrigins = isProduction
 
 // --- MIDDLEWARE ---
 app.use(helmet({
-  contentSecurityPolicy: false // Desactivado para no interferir con las imágenes base64 en Puppeteer
+  contentSecurityPolicy: false, // Desactivado para no interferir con las imágenes base64 en Puppeteer
+  // Firebase Auth (Google popup) requiere que el opener no quede aislado.
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }
 }));
 
 app.use(cors({
