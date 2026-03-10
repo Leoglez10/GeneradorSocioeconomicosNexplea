@@ -194,7 +194,23 @@ export default function App() {
   const [cloudSaveStatus, setCloudSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
   const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' | 'info' }
   const autoSaveTimer = useRef(null);
-  const lastSavedData = useRef(null);
+  const statusResetTimer = useRef(null);
+  const lastSavedSnapshot = useRef(null);
+  const latestFormDataRef = useRef(formData);
+  const latestCurrentStepRef = useRef(currentStep);
+
+  const buildSaveSnapshot = useCallback((data, step) => {
+    return JSON.stringify({ formData: data, currentStep: step });
+  }, []);
+
+  const queueCloudStatusReset = useCallback((nextStatus, delayMs) => {
+    if (statusResetTimer.current) clearTimeout(statusResetTimer.current);
+    setCloudSaveStatus(nextStatus);
+    statusResetTimer.current = setTimeout(() => {
+      setCloudSaveStatus('idle');
+      statusResetTimer.current = null;
+    }, delayMs);
+  }, []);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -209,40 +225,60 @@ export default function App() {
     } catch { }
   }, [formData, currentStep]);
 
+  useEffect(() => {
+    latestFormDataRef.current = formData;
+    latestCurrentStepRef.current = currentStep;
+  }, [formData, currentStep]);
+
   // --- CLOUD AUTO-SAVE (debounced 5s) ---
   useEffect(() => {
     if (!user || showWelcome || !cloudDocId) return;
 
-    // Don't auto-save if data hasn't changed
-    const dataStr = JSON.stringify(formData);
-    if (lastSavedData.current === dataStr) return;
+    const currentSnapshot = buildSaveSnapshot(formData, currentStep);
+    if (lastSavedSnapshot.current === currentSnapshot) {
+      setCloudSaveStatus(prev => (prev === 'pending' ? 'idle' : prev));
+      return;
+    }
 
     // Show pending immediately when data changes
+    if (statusResetTimer.current) clearTimeout(statusResetTimer.current);
     setCloudSaveStatus('pending');
 
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
 
     autoSaveTimer.current = setTimeout(async () => {
+      autoSaveTimer.current = null;
       try {
         setCloudSaveStatus('saving');
         const dataToSave = { ...formData, _currentStep: currentStep };
         const result = await saveStudy(dataToSave, cloudDocId, cloudCode);
         setCloudDocId(result.docId);
         setCloudCode(result.code);
-        lastSavedData.current = dataStr;
-        setCloudSaveStatus('saved');
-        setTimeout(() => setCloudSaveStatus('idle'), 3000);
+        lastSavedSnapshot.current = currentSnapshot;
+
+        const latestSnapshot = buildSaveSnapshot(latestFormDataRef.current, latestCurrentStepRef.current);
+        if (latestSnapshot === currentSnapshot) {
+          queueCloudStatusReset('saved', 3000);
+        } else {
+          setCloudSaveStatus('pending');
+        }
       } catch (err) {
         console.error('Auto-save failed:', err);
-        setCloudSaveStatus('error');
-        setTimeout(() => setCloudSaveStatus('idle'), 5000);
+        queueCloudStatusReset('error', 5000);
       }
     }, 5000);
 
     return () => {
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     };
-  }, [formData, currentStep, user, showWelcome, cloudDocId, cloudCode]);
+  }, [buildSaveSnapshot, cloudCode, cloudDocId, currentStep, formData, queueCloudStatusReset, showWelcome, user]);
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+      if (statusResetTimer.current) clearTimeout(statusResetTimer.current);
+    };
+  }, []);
 
 
 
@@ -253,7 +289,7 @@ export default function App() {
     setCurrentStep(1);
     setCloudDocId(null);
     setCloudCode(null);
-    lastSavedData.current = null;
+    lastSavedSnapshot.current = null;
     setShowWelcome(false);
     // Save immediately to get docId/code
     try {
@@ -261,9 +297,8 @@ export default function App() {
       const result = await saveStudy({ ...newData, _currentStep: 1 });
       setCloudDocId(result.docId);
       setCloudCode(result.code);
-      lastSavedData.current = JSON.stringify(newData);
-      setCloudSaveStatus('saved');
-      setTimeout(() => setCloudSaveStatus('idle'), 3000);
+      lastSavedSnapshot.current = buildSaveSnapshot(newData, 1);
+      queueCloudStatusReset('saved', 3000);
     } catch (err) {
       console.error('Initial save failed:', err);
       setCloudSaveStatus('error');
@@ -273,11 +308,14 @@ export default function App() {
   const handleLoadStudy = async (docId) => {
     try {
       const result = await loadStudyById(docId);
-      setFormData({ ...initialData, ...result.formData });
-      setCurrentStep(result.meta.currentStep || 1);
+      const loadedStep = result.meta.currentStep || 1;
+      const loadedData = { ...initialData, ...result.formData };
+      setFormData(loadedData);
+      setCurrentStep(loadedStep);
       setCloudDocId(result.meta.docId);
       setCloudCode(result.meta.code);
-      lastSavedData.current = JSON.stringify(result.formData);
+      lastSavedSnapshot.current = buildSaveSnapshot(loadedData, loadedStep);
+      setCloudSaveStatus('idle');
       setShowWelcome(false);
     } catch (err) {
       console.error('Load study failed:', err);
