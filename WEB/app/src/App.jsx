@@ -604,7 +604,7 @@ export default function App() {
         setShowProgressMenu(false);
         setCloudDocId(null);
         setCloudCode(null);
-        lastSavedData.current = null;
+        lastSavedSnapshot.current = null;
         setModal(null);
       }
     });
