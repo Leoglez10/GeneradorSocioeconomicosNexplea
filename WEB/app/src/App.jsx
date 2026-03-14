@@ -136,6 +136,57 @@ const initialData = {
   pageFormat: 'Letter'
 };
 
+const socialFieldKeys = ['deporte', 'sindicato', 'partidoPolitico', 'alcohol', 'tabaco', 'cirugias'];
+
+function normalizeYesNoValue(value, fallback = 'No') {
+  if (typeof value === 'boolean') return value ? 'Sí' : 'No';
+  if (typeof value !== 'string') return fallback;
+
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return fallback;
+
+  if (['si', 'sí', 's', 'yes', 'y', 'true', '1'].includes(normalized)) return 'Sí';
+  if (['no', 'n', 'false', '0'].includes(normalized)) return 'No';
+
+  return fallback;
+}
+
+function normalizeSocialField(value, defaults) {
+  if (!value || typeof value !== 'object') {
+    return { ...defaults };
+  }
+
+  const responseSource =
+    value.respuesta ??
+    value.siNo ??
+    value.respuestaSiNo ??
+    value.valor ??
+    value.value ??
+    value.checked;
+
+  return {
+    ...defaults,
+    ...value,
+    respuesta: normalizeYesNoValue(responseSource, defaults.respuesta)
+  };
+}
+
+function normalizeIncomingFormData(raw, normalizeArrayFn) {
+  const parsed = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const merged = {
+    ...initialData,
+    ...parsed,
+    mobiliarioCantidad: normalizeArrayFn(parsed.mobiliarioCantidad),
+    condicionesVivienda: normalizeArrayFn(parsed.condicionesVivienda)
+  };
+
+  socialFieldKeys.forEach((key) => {
+    merged[key] = normalizeSocialField(parsed[key], initialData[key]);
+  });
+
+  return merged;
+}
+
 export default function App() {
   const { user, loading: authLoading } = useAuth();
 
@@ -155,12 +206,7 @@ export default function App() {
       const saved = localStorage.getItem('ese_formData');
       if (saved) {
         const parsed = JSON.parse(saved);
-        return {
-          ...initialData,
-          ...parsed,
-          mobiliarioCantidad: normalizeArray(parsed.mobiliarioCantidad),
-          condicionesVivienda: normalizeArray(parsed.condicionesVivienda)
-        };
+        return normalizeIncomingFormData(parsed, normalizeArray);
       }
     } catch { }
     return initialData;
@@ -309,7 +355,7 @@ export default function App() {
     try {
       const result = await loadStudyById(docId);
       const loadedStep = result.meta.currentStep || 1;
-      const loadedData = { ...initialData, ...result.formData };
+      const loadedData = normalizeIncomingFormData(result.formData, normalizeArray);
       setFormData(loadedData);
       setCurrentStep(loadedStep);
       setCloudDocId(result.meta.docId);
@@ -589,7 +635,7 @@ export default function App() {
       try {
         const imported = JSON.parse(ev.target.result);
         if (imported && typeof imported === 'object' && !Array.isArray(imported)) {
-          setFormData({ ...initialData, ...imported });
+          setFormData(normalizeIncomingFormData(imported, normalizeArray));
           setCurrentStep(1);
           setShowWelcome(false);
           setShowLoadModal(false);

@@ -49,6 +49,19 @@ const portadaTemplatePath = path.join(__dirname, '..', 'templates', 'portada.ejs
 function normalizeFormData(raw) {
   const d = { ...raw };
 
+  const normalizeYesNoValue = (value, fallback = 'No') => {
+    if (typeof value === 'boolean') return value ? 'Sí' : 'No';
+    if (typeof value !== 'string') return fallback;
+
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return fallback;
+
+    if (['si', 'sí', 's', 'yes', 'y', 'true', '1'].includes(normalized)) return 'Sí';
+    if (['no', 'n', 'false', '0'].includes(normalized)) return 'No';
+
+    return fallback;
+  };
+
   // Strings simples
   const stringFields = [
     'fecha', 'puesto', 'nombre', 'lugarNacimiento', 'fechaNacimiento',
@@ -124,6 +137,21 @@ function normalizeFormData(raw) {
       d[key] = { ...def };
     } else {
       d[key] = { ...def, ...d[key] };
+    }
+
+    const responseSource =
+      d[key].respuesta ??
+      d[key].siNo ??
+      d[key].respuestaSiNo ??
+      d[key].valor ??
+      d[key].value ??
+      d[key].checked;
+
+    d[key].respuesta = normalizeYesNoValue(responseSource, def.respuesta);
+    d[key].detalles = typeof d[key].detalles === 'string' ? d[key].detalles : '';
+
+    if (Object.prototype.hasOwnProperty.call(def, 'cargo')) {
+      d[key].cargo = typeof d[key].cargo === 'string' ? d[key].cargo : '';
     }
   });
 
